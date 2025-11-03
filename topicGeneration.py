@@ -170,7 +170,7 @@ async def _generate_topics_async(
     if hasattr(client, "aclose"):
         await client.aclose()
 
-    df["topic"] = results
+    df["Topic"] = results
     df.to_csv(output_csv, index=False)
 
 
