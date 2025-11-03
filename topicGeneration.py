@@ -85,7 +85,15 @@ async def _fetch_topic(
                 messages=[
                     {
                         "role": "user",
-                        "content": "Here is a trace from a user's conversation with an LLM assistant:",
+                        "content": (
+                            "You are given a conversation trace representing an interaction between a user and an LLM assistant. "
+                            "Each trace is formatted as a dictionary where each key is a turn_id, corresponding to a single exchange consisting of a user message and an assistant reply. "
+                            "A turn_id represents one back-and-forth between the user and the LLM. "
+                            "For example:\n\n"
+                            "defaultdict(<class 'dict'>, {101001: {'user': 'Hey there! Are you familiar with reality shifting? So, I’m refining a foolproof method for reality shifting and want to pick a destination. Want to help me? ...', 'assistant': 'Hey there! I\\'m more than happy to help you plan your reality-shifting adventure, and I\\'ve got just the destination in mind for you ...'}})\n\n"
+                            "Use all the turns in order to fully understand the flow and context of the conversation. "
+                            "Here is the trace:"
+                        ),
                     },
                     {"role": "user", "content": conversation},
                     {
@@ -197,12 +205,3 @@ def generate_topics(
             backoff=config,
         )
     )
-
-
-generate_topics(
-    input_csv="/Users/vkodithala/Desktop/projects/OpenClio/selected_conversations.csv",
-    output_csv="/Users/vkodithala/Desktop/projects/OpenClio/selected_conversations_with_topics.csv",
-    column_name="Conversation",
-    model="deepseek-chat",
-    concurrency=8,
-)
