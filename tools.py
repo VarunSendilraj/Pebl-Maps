@@ -5,7 +5,7 @@ import os
 
 load_dotenv()  # Loading environment variables from .env file
 pc = Pinecone(api_key=os.getenv("PINECONE_API_KEY"))
-index = pc.Index(host="openclio")  # Connecting to the OpenClio index
+index = pc.Index(name="openclio", host=os.getenv("PINECONE_INDEX_URL"))  # Connecting to the OpenClio index
 
 
 def search_traces(
