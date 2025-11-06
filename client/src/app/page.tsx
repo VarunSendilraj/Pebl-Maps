@@ -1,3 +1,5 @@
+import BubbleCanvas from "~/components/bubbles/BubbleCanvas";
+import { dummyClusterData } from "~/lib/bubbles/dummyData";
 import TraceAgent from "~/components/TraceAgent";
 
 export default function HomePage() {
@@ -6,8 +8,8 @@ export default function HomePage() {
       <div className="flex w-[10%] items-center justify-center border-2 border-tertiary bg-tertiary/20 m-4 rounded-lg shadow-md">
         <span className="text-center w-full font-semibold">Left<br />10%</span>
       </div>
-      <div className="flex w-[65%] items-center justify-center border-2 border-secondary bg-secondary/20 m-4 rounded-lg shadow-md">
-        <span className="text-center w-full font-semibold">Center<br />65%</span>
+      <div className="flex w-[65%] flex-col m-4" style={{ backgroundColor: '#f0f0eb' }}>
+        <BubbleCanvas data={dummyClusterData} />
       </div>
       <div className="flex w-[25%] items-center justify-center border-2 border-gray-300 bg-gray-100 m-4 rounded-lg shadow-md">
         <TraceAgent />
