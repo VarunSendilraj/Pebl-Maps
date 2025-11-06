@@ -513,7 +513,7 @@ export default function BubbleCanvas({ data }: BubbleCanvasProps) {
     const startX = zoomStateRef.current.x;
     const startY = zoomStateRef.current.y;
     const startTime = performance.now();
-    const duration = 500; // ms
+    const duration = 900; // ms - slightly longer for smoother feel
 
     const animate = (currentTime: number) => {
       const elapsed = currentTime - startTime;
@@ -528,6 +528,13 @@ export default function BubbleCanvas({ data }: BubbleCanvasProps) {
 
       if (progress < 1) {
         animationFrameRef.current = requestAnimationFrame(animate);
+      } else {
+        // Ensure we end exactly at the target
+        zoomStateRef.current.k = targetK;
+        zoomStateRef.current.x = targetX;
+        zoomStateRef.current.y = targetY;
+        draw();
+        animationFrameRef.current = null;
       }
     };
 
@@ -570,12 +577,14 @@ export default function BubbleCanvas({ data }: BubbleCanvasProps) {
     const targetK = Math.min(scaleX, scaleY, 1); // Don't zoom in beyond 1x
 
     // Center the bounds in the viewport
-    // Transform order: translate(w/2, h/2) -> scale(k) -> translate(-w/2 + x, -h/2 + y)
-    // For point (centerX, centerY) to end up at (w/2, h/2):
-    // (centerX + w/2) * k - w/2 + x = w/2
-    // Solving: x = w - (centerX + w/2) * k
-    const targetX = width - (centerX + width / 2) * targetK;
-    const targetY = height - (centerY + height / 2) * targetK;
+    // The transform applies: translate(w/2, h/2) -> scale(k) -> translate(-w/2 + x, -h/2 + y)
+    // For a canvas point (centerX, centerY) to appear at screen center (w/2, h/2):
+    // Final screen position = (centerX * k + x, centerY * k + y)
+    // Setting this equal to (w/2, h/2) gives us:
+    // x = w/2 - centerX * k
+    // y = h/2 - centerY * k
+    const targetX = (width / 2) - centerX * targetK;
+    const targetY = (height / 2) - centerY * targetK;
 
     return { k: targetK, x: targetX, y: targetY };
   };
@@ -637,7 +646,7 @@ export default function BubbleCanvas({ data }: BubbleCanvasProps) {
       // Root
       setCurrentRoot(rootData);
       setBreadcrumbPath([]);
-      animateZoom(1, 0, 0);
+      shouldAutoZoomRef.current = true;
     } else {
       const targetNode = breadcrumbPath[index];
       if (!targetNode) return;
@@ -669,14 +678,18 @@ export default function BubbleCanvas({ data }: BubbleCanvasProps) {
     zoomStateRef.current = { k: 1, x: 0, y: 0 };
     shouldAutoZoomRef.current = false;
     
-    // Calculate initial fit zoom
-    const rect = containerRef.current?.getBoundingClientRect();
-    if (rect) {
-      const initialNodes = computeLayout(rootData, rect.width, rect.height);
-      const fitZoom = calculateFitZoom(initialNodes, rect.width, rect.height);
-      zoomStateRef.current = fitZoom;
-      draw();
-    }
+    // Calculate initial fit zoom - use double requestAnimationFrame to ensure container is fully sized
+    requestAnimationFrame(() => {
+      requestAnimationFrame(() => {
+        const rect = containerRef.current?.getBoundingClientRect();
+        if (rect && rect.width > 0 && rect.height > 0) {
+          const initialNodes = computeLayout(rootData, rect.width, rect.height);
+          const fitZoom = calculateFitZoom(initialNodes, rect.width, rect.height);
+          zoomStateRef.current = fitZoom;
+          draw();
+        }
+      });
+    });
   }, [rootData]);
 
   // Auto-zoom when currentRoot changes (if triggered by user interaction)
@@ -721,7 +734,7 @@ export default function BubbleCanvas({ data }: BubbleCanvasProps) {
         onNavigate={handleBreadcrumbClick}
         onRoot={() => handleBreadcrumbClick(-1)}
       />
-      <div ref={containerRef} className="relative w-full flex-1 min-h-0">
+      <div ref={containerRef} className="relative w-full flex-1 min-h-0 overflow-hidden">
         <canvas
           ref={canvasRef}
           onClick={handleClick}
