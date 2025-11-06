@@ -1,6 +1,23 @@
 @import "tailwindcss";
 
 @theme {
-  --font-sans: var(--font-geist-sans), ui-sans-serif, system-ui, sans-serif,
+  --font-sans: var(--font-inter), ui-sans-serif, system-ui, sans-serif,
     "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol", "Noto Color Emoji";
+
+  /* ASL Color Palette */
+  /* ASL-4+ (darkest terracotta) - Primary */
+  --color-primary: #8b4a3a;
+  --color-primary-foreground: #ffffff;
+
+  /* ASL-3 (muted terracotta) - Secondary */
+  --color-secondary: #c97d60;
+  --color-secondary-foreground: #ffffff;
+
+  /* ASL-2 (light beige/tan) - Tertiary */
+  --color-tertiary: #e8dcc6;
+  --color-tertiary-foreground: #3d2819;
+
+  /* ASL-1 (very light cream) - Background */
+  --color-background: #faf9f6;
+  --color-foreground: #3d2819;
 }
