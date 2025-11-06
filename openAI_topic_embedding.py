@@ -35,7 +35,7 @@ async def _sleep_with_jitter(base_delay: float, attempt: int, max_delay: float) 
 
 def _create_client() -> AsyncOpenAI:
     api_key = os.environ.get("OPENAI_API_KEY")
-    print(f"OpenAI API key loaded")
+    print("OpenAI API key loaded")
     if not api_key:
         raise EnvironmentError(
             "OPENAI_API_KEY environment variable is not set. "
@@ -162,7 +162,6 @@ async def embed_topics(
         ncols=100,
         bar_format="{l_bar}{bar}| {n_fmt}/{total_fmt} [{elapsed}<{remaining}, {rate_fmt}]",
     ) as progress:
-
         async def process_batch(batch_idx: int, batch: List[str]) -> None:
             async with semaphore:
                 try:
