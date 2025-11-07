@@ -4,6 +4,14 @@ import { useEffect, useRef, useState, useMemo } from "react";
 import { hierarchy, pack } from "d3-hierarchy";
 import type { ClusterNode, PackedNode, ClusterType } from "~/lib/bubbles/types";
 import Breadcrumb from "./Breadcrumb";
+import {
+  CATEGORY_COLORS,
+  getGlowierShade,
+  getDarkerShade,
+  getTextColor,
+  getBorderColor,
+} from "~/lib/bubbles/colors";
+import { useNavigationState, useNavigationActions } from "~/contexts/NavigationContext";
 
 interface BubbleCanvasProps {
   data: ClusterNode | ClusterNode[];
@@ -18,6 +26,10 @@ interface ZoomState {
 export default function BubbleCanvas({ data }: BubbleCanvasProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
+  
+  // Access navigation context
+  const { selectedNodeId } = useNavigationState();
+  const { selectNode, navigateToRoot } = useNavigationActions();
   
   // Normalize data to array and create synthetic root if needed
   const rootData: ClusterNode = useMemo(() => {
@@ -42,107 +54,6 @@ export default function BubbleCanvas({ data }: BubbleCanvasProps) {
   const nodesRef = useRef<PackedNode[]>([]);
   const shouldAutoZoomRef = useRef<boolean>(false);
 
-  // Color palette for L2 categories
-  const CATEGORY_COLORS: { [key: string]: string } = {
-    "l2-1": "#F9F0C7", // Pale Yellow for Software Development Tutorials
-    "l2-2": "#BD8BA0", // Muted Rose for Data Science & Analytics
-    "l2-3": "#E8A7B9", // Soft Pink for DevOps & Infrastructure
-    // Future categories can use: #3F4A59 (Dark Blue/Slate) or similar shades
-  };
-
-  // Helper to convert hex to HSL
-  const hexToHsl = (hex: string): [number, number, number] => {
-    let r = 0, g = 0, b = 0;
-    if (hex.length === 4) {
-      const rChar = hex[1];
-      const gChar = hex[2];
-      const bChar = hex[3];
-      if (rChar && gChar && bChar) {
-        r = parseInt(rChar + rChar, 16);
-        g = parseInt(gChar + gChar, 16);
-        b = parseInt(bChar + bChar, 16);
-      }
-    } else if (hex.length === 7) {
-      r = parseInt(hex.substring(1, 3), 16);
-      g = parseInt(hex.substring(3, 5), 16);
-      b = parseInt(hex.substring(5, 7), 16);
-    }
-    r /= 255;
-    g /= 255;
-    b /= 255;
-
-    const max = Math.max(r, g, b);
-    const min = Math.min(r, g, b);
-    let h = 0, s, l = (max + min) / 2;
-
-    if (max === min) {
-      h = s = 0;
-    } else {
-      const d = max - min;
-      s = l > 0.5 ? d / (2 - max - min) : d / (max + min);
-      switch (max) {
-        case r:
-          h = (g - b) / d + (g < b ? 6 : 0);
-          break;
-        case g:
-          h = (b - r) / d + 2;
-          break;
-        case b:
-          h = (r - g) / d + 4;
-          break;
-      }
-      h /= 6;
-    }
-    return [h * 360, s * 100, l * 100];
-  };
-
-  // Helper to convert HSL to hex
-  const hslToHex = (h: number, s: number, l: number): string => {
-    l /= 100;
-    const a = s * Math.min(l, 1 - l) / 100;
-    const f = (n: number) => {
-      const k = (n + h / 30) % 12;
-      const color = l - a * Math.max(Math.min(k - 3, 9 - k, 1), -1);
-      return Math.round(255 * color).toString(16).padStart(2, "0");
-    };
-    return `#${f(0)}${f(8)}${f(4)}`;
-  };
-
-  // Generate a "glowier" (lighter and more saturated) shade for subcategories
-  const getGlowierShade = (baseColor: string, lightnessBoost: number = 12, saturationBoost: number = 10): string => {
-    const [h, s, l] = hexToHsl(baseColor);
-    const newL = Math.min(95, Math.max(5, l + lightnessBoost));
-    const newS = Math.min(100, Math.max(0, s + saturationBoost));
-    return hslToHex(h, newS, newL);
-  };
-
-  // Generate a darker shade for non-current level nodes (to make them stand out)
-  const getDarkerShade = (baseColor: string, darknessAmount: number = -15): string => {
-    const [h, s, l] = hexToHsl(baseColor);
-    const newL = Math.min(95, Math.max(5, l + darknessAmount));
-    // Slightly reduce saturation for darker shades to avoid muddy colors
-    const newS = Math.min(100, Math.max(0, s - 5));
-    return hslToHex(h, newS, newL);
-  };
-
-  // Generate a much darker shade for text to ensure legibility
-  const getTextColor = (baseColor: string): string => {
-    const [h, s, l] = hexToHsl(baseColor);
-    // Make text significantly darker (reduce lightness by 40-50%)
-    // Keep some saturation to maintain color identity, but reduce slightly for readability
-    const textL = Math.max(15, Math.min(35, l - 45)); // Keep between 15-35% lightness
-    const textS = Math.min(100, Math.max(20, s - 10)); // Reduce saturation slightly
-    return hslToHex(h, textS, textL);
-  };
-
-  // Generate a slightly darker shade for borders (lighter than text, darker than fill)
-  const getBorderColor = (baseColor: string): string => {
-    const [h, s, l] = hexToHsl(baseColor);
-    // Make border slightly darker - reduce lightness by 20-25% (less than text)
-    const borderL = Math.max(20, Math.min(50, l - 22)); // Keep between 20-50% lightness
-    const borderS = Math.min(100, Math.max(25, s - 5)); // Slightly reduce saturation
-    return hslToHex(h, borderS, borderL);
-  };
 
   // Find the L2 ancestor by traversing the original data structure
   const findL2AncestorInData = (nodeId: string, dataTree: ClusterNode): ClusterNode | null => {
@@ -210,6 +121,67 @@ export default function BubbleCanvas({ data }: BubbleCanvasProps) {
     }
     
     return null;
+  };
+
+  // Navigate to a specific node by ID (for external selection sync)
+  const navigateToNode = (nodeId: string) => {
+    // Find the node and its path in the original data tree
+    const findNodeWithPath = (
+      tree: ClusterNode,
+      targetId: string,
+      path: ClusterNode[] = []
+    ): { node: ClusterNode | null; path: ClusterNode[] } => {
+      if (tree.id === targetId) {
+        return { node: tree, path };
+      }
+      if (tree.children) {
+        for (const child of tree.children) {
+          const result = findNodeWithPath(child, targetId, [...path, tree]);
+          if (result.node) {
+            return result;
+          }
+        }
+      }
+      return { node: null, path: [] };
+    };
+
+    const result = findNodeWithPath(rootData, nodeId);
+    if (!result.node) {
+      console.warn(`Node with id ${nodeId} not found`);
+      return;
+    }
+
+    const targetNode = result.node;
+    // Filter out the synthetic __root__ node from the path
+    const pathToNode = result.path.filter(node => node.id !== "__root__");
+
+    // If the node has children, navigate to it (make it the currentRoot)
+    // Otherwise, navigate to its parent and highlight the node
+    if (targetNode.children && targetNode.children.length > 0) {
+      // Navigate to this node
+      const newPath = [...pathToNode, targetNode];
+      setBreadcrumbPath(newPath);
+      setCurrentRoot(targetNode);
+      navigateToRoot(targetNode, newPath);
+      shouldAutoZoomRef.current = true;
+    } else {
+      // Navigate to parent and highlight this node
+      if (pathToNode.length > 0) {
+        const parent = pathToNode[pathToNode.length - 1];
+        if (parent) {
+          setBreadcrumbPath(pathToNode);
+          setCurrentRoot(parent);
+          navigateToRoot(parent, pathToNode);
+          shouldAutoZoomRef.current = true;
+        }
+      } else {
+        // Node is at root level
+        setBreadcrumbPath([]);
+        setCurrentRoot(rootData);
+        navigateToRoot(rootData, []);
+        shouldAutoZoomRef.current = true;
+      }
+    }
   };
 
   // Get color based on L2 category and node level
@@ -336,6 +308,7 @@ export default function BubbleCanvas({ data }: BubbleCanvasProps) {
     const sortedNodes = [...visibleNodes].sort((a, b) => b.depth - a.depth);
     sortedNodes.forEach((node) => {
       const isHovered = hoveredNode?.id === node.id;
+      const isSelected = selectedNodeId === node.id;
       const isCurrentLevel = node.depth === currentLevelDepth;
 
       // Get the base color for this node
@@ -356,8 +329,31 @@ export default function BubbleCanvas({ data }: BubbleCanvasProps) {
       const fillAlphaEnd = isCurrentLevel ? "50" : "25";
       const strokeAlpha = isCurrentLevel ? "70" : "80";
 
+      // Draw special pulsing glow for selected node
+      if (isSelected) {
+        const pulseTime = (Date.now() % 2000) / 2000; // 2 second cycle
+        const pulseScale = 1.2 + Math.sin(pulseTime * Math.PI * 2) * 0.15; // Oscillate between 1.05 and 1.35
+        const pulseAlpha = Math.floor(40 + Math.sin(pulseTime * Math.PI * 2) * 20); // Oscillate alpha
+        
+        const selectionGlow = ctx.createRadialGradient(
+          node.x,
+          node.y,
+          node.r * 0.5,
+          node.x,
+          node.y,
+          node.r * pulseScale
+        );
+        selectionGlow.addColorStop(0, hexToRgba(displayColor, pulseAlpha.toString(16).padStart(2, '0')));
+        selectionGlow.addColorStop(1, hexToRgba(displayColor, "00"));
+        
+        ctx.fillStyle = selectionGlow;
+        ctx.beginPath();
+        ctx.arc(node.x, node.y, node.r * pulseScale, 0, Math.PI * 2);
+        ctx.fill();
+      }
+      
       // For sublevels, draw outer glow effect first
-      if (!isCurrentLevel) {
+      if (!isCurrentLevel && !isSelected) {
         // Draw outer glow layer (larger, more transparent circle)
         const glowGradient = ctx.createRadialGradient(
           node.x,
@@ -401,23 +397,32 @@ export default function BubbleCanvas({ data }: BubbleCanvasProps) {
       ctx.arc(node.x, node.y, node.r, 0, Math.PI * 2);
       ctx.fill();
 
-      // Draw border - dotted for sublevels, solid for current level
+      // Draw border - special styling for selected, dotted for sublevels, solid for current level
       let borderColor: string;
-      if (isHovered) {
+      let borderWidth: number;
+      
+      if (isSelected) {
+        // Selected node gets bright, thick border
         borderColor = displayColor;
+        borderWidth = 4;
+      } else if (isHovered) {
+        borderColor = displayColor;
+        borderWidth = 3;
       } else if (isCurrentLevel) {
         // For current level, use slightly darker shade for better differentiation
         const darkerBorder = getBorderColor(displayColor);
         borderColor = hexToRgba(darkerBorder, strokeAlpha);
+        borderWidth = 2;
       } else {
         // For sublevels, use the display color with opacity
         borderColor = hexToRgba(displayColor, strokeAlpha);
+        borderWidth = 2;
       }
       ctx.strokeStyle = borderColor;
-      ctx.lineWidth = isHovered ? 3 : isCurrentLevel ? 2 : 2;
+      ctx.lineWidth = borderWidth;
       
-      // Use dotted line for sublevels
-      if (!isCurrentLevel && !isHovered) {
+      // Use dotted line for sublevels (but not for selected or hovered)
+      if (!isCurrentLevel && !isHovered && !isSelected) {
         const dashPattern = [4, 4]; // Dotted pattern
         ctx.setLineDash(dashPattern);
       } else {
@@ -620,6 +625,10 @@ export default function BubbleCanvas({ data }: BubbleCanvasProps) {
     // The breadcrumb represents the path TO the current view
     const newBreadcrumbPath = [...breadcrumbPath, clusterNode];
 
+    // Update context with selection and navigation
+    selectNode(node.id);
+    navigateToRoot(clusterNode, newBreadcrumbPath);
+
     // Update state and trigger auto-zoom
     setBreadcrumbPath(newBreadcrumbPath);
     shouldAutoZoomRef.current = true;
@@ -646,6 +655,7 @@ export default function BubbleCanvas({ data }: BubbleCanvasProps) {
       // Root
       setCurrentRoot(rootData);
       setBreadcrumbPath([]);
+      navigateToRoot(rootData, []);
       shouldAutoZoomRef.current = true;
     } else {
       const targetNode = breadcrumbPath[index];
@@ -653,6 +663,7 @@ export default function BubbleCanvas({ data }: BubbleCanvasProps) {
       
       const newPath = breadcrumbPath.slice(0, index + 1);
       setBreadcrumbPath(newPath);
+      navigateToRoot(targetNode, newPath);
       shouldAutoZoomRef.current = true;
       setCurrentRoot(targetNode);
     }
@@ -675,6 +686,8 @@ export default function BubbleCanvas({ data }: BubbleCanvasProps) {
   useEffect(() => {
     setCurrentRoot(rootData);
     setBreadcrumbPath([]);
+    navigateToRoot(rootData, []);
+    selectNode(null);
     zoomStateRef.current = { k: 1, x: 0, y: 0 };
     shouldAutoZoomRef.current = false;
     
@@ -716,6 +729,32 @@ export default function BubbleCanvas({ data }: BubbleCanvasProps) {
   useEffect(() => {
     draw();
   }, [hoveredNode]);
+
+  // Handle external selection changes from ClusterTree
+  useEffect(() => {
+    if (selectedNodeId) {
+      navigateToNode(selectedNodeId);
+    }
+  }, [selectedNodeId]);
+
+  // Continuous animation loop for pulsing selected node
+  useEffect(() => {
+    if (!selectedNodeId) return;
+    
+    let animationId: number;
+    const animate = () => {
+      draw();
+      animationId = requestAnimationFrame(animate);
+    };
+    
+    animationId = requestAnimationFrame(animate);
+    
+    return () => {
+      if (animationId) {
+        cancelAnimationFrame(animationId);
+      }
+    };
+  }, [selectedNodeId, currentRoot, hoveredNode]);
 
   // Cleanup animation frame
   useEffect(() => {
