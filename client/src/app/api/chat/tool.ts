@@ -1,0 +1,74 @@
+import { z } from "zod";
+import { tool } from "@openai/agents";
+import { Pinecone } from "@pinecone-database/pinecone";
+import { OpenAI } from "openai";
+
+interface Trace {
+    id: string,
+    description: string,
+}
+
+// Define the search traces tool function
+export const searchTracesTool = tool({
+    name: "search_traces",
+    description: "Search for traces in Pinecone using semantic similarity. Returns relevant traces based on the query.",
+    parameters: z.object({
+        query: z.string().describe("The search query to find relevant traces"),
+    }),
+    execute: async (input: { query: string }) => {
+        try {
+            if (!process.env.PINECONE_API_KEY) {
+                throw new Error("PINECONE_API_KEY is not set");
+            }
+
+            if (!process.env.OPENAI_API_KEY) {
+                throw new Error("OPENAI_API_KEY is not set");
+            }
+
+            const pc = new Pinecone({
+                apiKey: process.env.PINECONE_API_KEY,
+            });
+
+            const openai = new OpenAI({
+                apiKey: process.env.OPENAI_API_KEY,
+            });
+
+            const response = await openai.embeddings.create({
+                model: "text-embedding-3-large",
+                input: input.query,
+            });
+
+            const embedding = response?.data[0]?.embedding as number[];
+            if (embedding === undefined) {
+                throw new Error("OpenAI embedding is undefined.");
+            }
+
+            const result = await pc.Index("openclio").query({
+                vector: embedding,
+                topK: 10,
+                includeMetadata: true,
+                filter: {
+                    type: "topic",
+                },
+            });
+
+            const matches: Trace[] = result.matches.map((match) => {
+                if (match.metadata?.description === undefined || typeof match.metadata.description !== 'string') {
+                    throw new Error("Metadata description is undefined.");
+                }
+                return {
+                    id: match.id,
+                    description: match.metadata.description,
+                };
+            });
+            console.log("searchTraces tool executed successfully.");
+            console.log("Matches:", matches);
+
+            return { success: true, traces: matches };
+        } catch (error) {
+            console.error('Pinecone query error:', error);
+            const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+            return { success: false, error: errorMessage };
+        }
+    },
+});

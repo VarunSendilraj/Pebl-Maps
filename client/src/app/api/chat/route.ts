@@ -1,6 +1,7 @@
 import { NextRequest } from "next/server";
 import { Agent, OpenAIConversationsSession, run } from "@openai/agents";
 import { z } from "zod";
+import { searchTracesTool } from "./tool";
 
 const traceAgentSchema = z.object({
     query: z.string(), // For now, the user just sends a query string via the API. Maybe define some more things later on.
@@ -26,7 +27,8 @@ export async function POST(request: NextRequest) {
                 // Initializing a new agent and session using the Agents/Conversations SDK.
                 const traceAgent = new Agent({
                     name: "traceAgent",
-                    instructions: "You are a helpful assistant that helps users uncover hidden insights from traces in Pinecone.", // Edit this, not super verbose/good at all. Later, we also want to add in a new tool for searching traces.
+                    instructions: "You are a helpful assistant that helps users uncover hidden insights from traces in Pinecone. Use the search_traces tool to find relevant traces based on user queries.",
+                    tools: [searchTracesTool],
                 });
                 console.log("Trace agent initialized.");
                 const session = new OpenAIConversationsSession();
