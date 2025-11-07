@@ -45,7 +45,7 @@ function HomePageContent() {
 
   return (
     <main className="flex min-h-screen h-screen flex-row items-stretch bg-background text-foreground">
-      <div className="flex w-[10%] flex-col border-2 border-tertiary bg-tertiary/20 m-4 rounded-lg shadow-md overflow-hidden">
+      <div className="flex w-[10%] min-w-0 flex-col border-2 border-tertiary bg-tertiary/20 m-4 rounded-lg shadow-md overflow-hidden">
         {isLoading ? (
           <div className="flex items-center justify-center h-full">
             <div className="text-center">

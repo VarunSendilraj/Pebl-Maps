@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState, useMemo } from "react";
+import { useEffect, useRef, useState, useMemo, useCallback } from "react";
 import { hierarchy, pack } from "d3-hierarchy";
 import type { ClusterNode, PackedNode, ClusterType } from "~/lib/bubbles/types";
 import Breadcrumb from "./Breadcrumb";
@@ -28,7 +28,8 @@ export default function BubbleCanvas({ data }: BubbleCanvasProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   
   // Access navigation context
-  const { selectedNodeId } = useNavigationState();
+  const navigationState = useNavigationState();
+  const { selectedNodeId, isSyncModeEnabled } = navigationState;
   const { selectNode, navigateToRoot } = useNavigationActions();
   
   // Normalize data to array and create synthetic root if needed
@@ -124,7 +125,7 @@ export default function BubbleCanvas({ data }: BubbleCanvasProps) {
   };
 
   // Navigate to a specific node by ID (for external selection sync)
-  const navigateToNode = (nodeId: string) => {
+  const navigateToNode = useCallback((nodeId: string) => {
     // Find the node and its path in the original data tree
     const findNodeWithPath = (
       tree: ClusterNode,
@@ -182,7 +183,7 @@ export default function BubbleCanvas({ data }: BubbleCanvasProps) {
         shouldAutoZoomRef.current = true;
       }
     }
-  };
+  }, [rootData, navigateToRoot]);
 
   // Get color based on L2 category and node level
   const getColor = (node: PackedNode): string => {
@@ -730,12 +731,12 @@ export default function BubbleCanvas({ data }: BubbleCanvasProps) {
     draw();
   }, [hoveredNode]);
 
-  // Handle external selection changes from ClusterTree
+  // Handle external selection changes from ClusterTree (only if sync mode is enabled)
   useEffect(() => {
-    if (selectedNodeId) {
+    if (selectedNodeId && isSyncModeEnabled) {
       navigateToNode(selectedNodeId);
     }
-  }, [selectedNodeId]);
+  }, [selectedNodeId, isSyncModeEnabled, navigateToNode]);
 
   // Continuous animation loop for pulsing selected node
   useEffect(() => {
