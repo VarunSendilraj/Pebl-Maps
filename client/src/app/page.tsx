@@ -7,6 +7,7 @@ import type { ClusterNode, TopicSummary } from "~/lib/bubbles/types";
 import TraceAgent from "~/components/TraceAgent";
 import ClusterTree from "~/components/cluster-tree/ClusterTree";
 import { NavigationProvider, useNavigationActions } from "~/contexts/NavigationContext";
+import { TraceProvider } from "~/contexts/TraceContext";
 
 function HomePageContent() {
   const [clusterData, setClusterData] = useState<ClusterNode[]>([]);
@@ -101,7 +102,9 @@ function HomePageContent() {
 export default function HomePage() {
   return (
     <NavigationProvider>
-      <HomePageContent />
+      <TraceProvider>
+        <HomePageContent />
+      </TraceProvider>
     </NavigationProvider>
   );
 }
