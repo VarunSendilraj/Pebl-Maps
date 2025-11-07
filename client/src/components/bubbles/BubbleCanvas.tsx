@@ -37,6 +37,7 @@ export default function BubbleCanvas({ data }: BubbleCanvasProps) {
   const [breadcrumbPath, setBreadcrumbPath] = useState<ClusterNode[]>([]);
   const [hoveredNode, setHoveredNode] = useState<PackedNode | null>(null);
   const [tooltipPos, setTooltipPos] = useState<{ x: number; y: number } | null>(null);
+  const [isTraceViewerOpen, setIsTraceViewerOpen] = useState<boolean>(false);
   const zoomStateRef = useRef<ZoomState>({ k: 1, x: 0, y: 0 });
   const animationFrameRef = useRef<number | null>(null);
   const nodesRef = useRef<PackedNode[]>([]);
@@ -767,6 +768,61 @@ export default function BubbleCanvas({ data }: BubbleCanvasProps) {
         <p className="mt-2 text-xs text-slate-500">
           Click any circle with child items to zoom in
         </p>
+      )}
+      
+      {/* Trace Viewer Panel */}
+      {isTraceViewerOpen && (
+        <div className="bg-white border border-gray-300 rounded-lg" style={{ height: "20%" }}>
+          <div className="flex items-center justify-between p-4">
+            <div className="text-[#8b4a3a] font-bold">Trace Viewer</div>
+            <button
+              onClick={() => setIsTraceViewerOpen(false)}
+              className="text-[#8b4a3a] hover:bg-[#8b4a3a]/10 rounded p-1 transition-all"
+              aria-label="Close trace viewer"
+            >
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                fill="none"
+                viewBox="0 0 24 24"
+                strokeWidth={2}
+                stroke="currentColor"
+                className="w-5 h-5"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  d="M6 18L18 6M6 6l12 12"
+                />
+              </svg>
+            </button>
+          </div>
+        </div>
+      )}
+      
+      {/* Toggle Button */}
+      {!isTraceViewerOpen && (
+        <div className="flex justify-center pt-4">
+          <button
+            onClick={() => setIsTraceViewerOpen(true)}
+            className="rounded-lg border border-[#d5d5d5] px-3 py-1 font-sans font-bold text-[#8a817c] transition-all hover:bg-[#8a817c]/10 flex items-center gap-2"
+          >
+            <svg
+              xmlns="http://www.w3.org/2000/svg"
+              fill="none"
+              viewBox="0 0 24 24"
+              strokeWidth={2}
+              stroke="currentColor"
+              className="w-4 h-4"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                d="M4.5 15.75l7.5-7.5 7.5 7.5"
+              />
+            </svg>
+            Open Trace Viewer
+          </button>
+        </div>
       )}
     </div>
   );
