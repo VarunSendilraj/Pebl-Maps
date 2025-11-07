@@ -1,5 +1,5 @@
 import BubbleCanvas from "~/components/bubbles/BubbleCanvas";
-import { dummyClusterData } from "~/app/lib/bubbles/dummyData";
+import { dummyClusterData } from "~/lib/bubbles/dummyData";
 import TraceAgent from "~/components/TraceAgent";
 
 export default function HomePage() {
