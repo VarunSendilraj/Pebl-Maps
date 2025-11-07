@@ -14,6 +14,7 @@ export default function TraceAgent() {
     const [inputValue, setInputValue] = useState<string>("");
     const [conversationHistory, setConversationHistory] = useState<Message[]>([]);
     const [isProcessing, setIsProcessing] = useState<boolean>(false);
+    const [conversationId, setConversationId] = useState<string | null>(null);
     const messagesEndRef = useRef<HTMLDivElement>(null);
 
     // Auto-scroll to bottom when conversation history changes
@@ -47,7 +48,7 @@ export default function TraceAgent() {
         setConversationHistory((prev) => [...prev, assistantMessage]);
 
         try {
-            await streamResponse(userMessage.text, assistantMessageId, setConversationHistory);
+            await streamResponse(userMessage.text, assistantMessageId, conversationId, setConversationHistory, setConversationId);
         } catch (error) {
             console.error("Failed to send message:", error);
             // Update the assistant message with error
@@ -156,14 +157,19 @@ export default function TraceAgent() {
 async function streamResponse(
     query: string,
     assistantMessageId: string,
-    setConversationHistory: Dispatch<SetStateAction<Message[]>>
+    conversationId: string | null,
+    setConversationHistory: Dispatch<SetStateAction<Message[]>>,
+    setConversationId: Dispatch<SetStateAction<string | null>>
 ) {
     const response = await fetch("/api/chat", {
         method: "POST",
         headers: {
             "Content-Type": "application/json",
         },
-        body: JSON.stringify({ query: query }),
+        body: JSON.stringify({ 
+            query: query,
+            ...(conversationId && { conversationId })
+        }),
     });
 
     if (!response.ok) {
@@ -196,6 +202,10 @@ async function streamResponse(
                     }
 
                     if (data.done) {
+                        // Save conversationId for future requests
+                        if (data.conversationId) {
+                            setConversationId(data.conversationId);
+                        }
                         return;
                     }
 
