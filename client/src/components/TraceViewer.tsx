@@ -15,7 +15,8 @@ export default function TraceViewer({ isTraceViewerOpen, setIsTraceViewerOpen }:
             throw new Error(`Failed to fetch trace data: ${data.error}`);
         }
         console.log("Successfully fetched trace data for traceId:", traceId);
-        return data.traceChunk;
+        console.log("Trace data:", data.trace);
+        return data.trace;
     };
 
     useEffect(() => {

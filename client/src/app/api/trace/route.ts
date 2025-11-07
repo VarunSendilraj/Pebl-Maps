@@ -55,25 +55,38 @@ export async function GET(request: NextRequest) {
         num_turns: 0,
     };
 
-    let i = 0; // Increment this until a chunk index is is nonexistent. This is the chunk index.
-    let content = "";
+    // Collect all trace chunks - trace is now stored as an array of strings
+    let traceMessages: string[] = [];
+    let totalTraceChunks = 0;
+    let i = 0; // Increment this until a chunk index is nonexistent. This is the chunk index.
+    
     while (true) {
         const chunkId = `${topicId}_${i}`;
         const chunk = await pc.Index("openclio").fetch([chunkId]);
         if (chunk.records && chunk.records[chunkId]) {
-            if (i == 0) {
-                traceChunk.l0_cluster_id = Number(chunk.records[chunkId]?.metadata?.L0_cluster_id ?? 0);
-                traceChunk.l1_cluster_id = Number(chunk.records[chunkId]?.metadata?.L1_cluster_id ?? 0);
-                traceChunk.l2_cluster_id = Number(chunk.records[chunkId]?.metadata?.L2_cluster_id ?? 0);
-                traceChunk.country = String(chunk.records[chunkId]?.metadata?.country ?? "");
-                traceChunk.description = String(chunk.records[chunkId]?.metadata?.description ?? "");
-                traceChunk.hour = Number(chunk.records[chunkId]?.metadata?.hour ?? 0);
-                traceChunk.model = String(chunk.records[chunkId]?.metadata?.model ?? "");
-                traceChunk.state = String(chunk.records[chunkId]?.metadata?.state ?? "");
-                content += String(chunk.records[chunkId]?.metadata?.trace ?? "");
-                // console.log(chunk.records[chunkId]?.metadata);
+            const metadata = chunk.records[chunkId].metadata;
+            
+            if (i === 0) {
+                // Extract metadata from first chunk
+                traceChunk.l0_cluster_id = Number(metadata?.L0_cluster_id ?? 0);
+                traceChunk.l1_cluster_id = Number(metadata?.L1_cluster_id ?? 0);
+                traceChunk.l2_cluster_id = Number(metadata?.L2_cluster_id ?? 0);
+                traceChunk.country = String(metadata?.country ?? "");
+                traceChunk.description = String(metadata?.description ?? "");
+                traceChunk.hour = Number(metadata?.hour ?? 0);
+                traceChunk.model = String(metadata?.model ?? "");
+                traceChunk.state = String(metadata?.state ?? "");
+                totalTraceChunks = Number(metadata?.total_trace_chunks ?? 0);
+            }
+            
+            // Extract trace array from metadata
+            const traceData = metadata?.trace;
+            if (Array.isArray(traceData)) {
+                // New format: trace is an array of strings
+                traceMessages = traceMessages.concat(traceData);
             } else {
-                content += String(chunk.records[chunkId]?.metadata?.trace ?? "");
+                // Fallback: if trace is not an array, log warning and skip
+                console.warn(`Chunk ${chunkId} has non-array trace data, skipping`);
             }
         } else {
             break;
@@ -81,64 +94,56 @@ export async function GET(request: NextRequest) {
         i++;
     }
 
-    // At this point, `content` contains the full text of the trace, as a string. Now we need to parse it into a JSON object.
-    content = content.trim();
-
-    // Remove defaultdict wrapper: "defaultdict(<class 'dict'>, {...})"
-    content = content.replace(/^defaultdict\([^,]+,\s*/, '');
-    content = content.replace(/\)$/, '');
-    console.log(`Content after removing defaultdict wrapper: ${content}`);
-
-    // Extract JSON object from defaultdict string using regex
-    // Pattern matches content between outermost braces
-    const jsonMatch = content.match(/\{[\s\S]*\}/);
-    if (!jsonMatch) {
-        return NextResponse.json({ error: "Failed to extract JSON from content" }, { status: 500 });
+    // Optional validation: check if we fetched all expected chunks
+    if (totalTraceChunks > 0 && i !== totalTraceChunks) {
+        console.warn(`Expected ${totalTraceChunks} chunks but found ${i} chunks for topic ${topicId}`);
     }
 
-    let jsonString = jsonMatch[0];
-
-    // Convert Python dict format to valid JSON:
-    // 1. Replace numeric keys (e.g., "102283:") with quoted keys (e.g., "\"102283\":")
-    // 2. Replace single quotes with double quotes for string values
-    jsonString = jsonString.replace(/(\d+):/g, '"$1":');
-    // Replace all \' with a placeholder, then convert outer single quotes to double quotes, then revert placeholder to single quote
-    jsonString = jsonString.replace(/\\'/g, '___SINGLE_QUOTE_PLACEHOLDER___');
-    jsonString = jsonString.replace(/'/g, '"');
-    jsonString = jsonString.replace(/___SINGLE_QUOTE_PLACEHOLDER___/g, "'");
-
-    // Escape double-quotes inside user or assistant string values to prevent invalid JSON parsing
-    // This works directly on jsonString before parsing, but after Python->JSON conversions above
-    // We'll use a regex to match "user": "VALUE" and "assistant": "VALUE"
-    jsonString = jsonString.replace(
-        /("(user|assistant)"\s*:\s*")((?:[^"\\]|\\.)*)(")/g,
-        function (match, prefix, field, value, suffix) {
-            // Escape unescaped double quotes within the value string
-            // Only escape " that are not already preceded by \ (not escaped yet)
-            // In this context, since original data may have unescaped " from Python, we escape all
-            // unescaped " inside the value, but skipping structural quotes
-            console.log(`prefix: ${prefix}`);
-            console.log(`value: ${value}`);
-            console.log(`suffix: ${suffix}`);
-            const escapedValue = value.replace(/(?<!\\)"/g, '\\"');
-            return prefix + escapedValue + suffix;
-        }
-    );
-
+    // Convert flat array to turns format
+    // traceMessages is a flat array: [user_msg_1, assistant_msg_1, user_msg_2, assistant_msg_2, ...]
+    // We need to convert it to: [{user: "...", assistant: "..."}, ...]
     let turns: Array<{ user: string; assistant: string }> = [];
-    try {
-        console.log(`JSON string: ${jsonString}`);
-        const parsed = JSON.parse(jsonString);
-        // Convert object to array of turns
-        turns = Object.values(parsed) as Array<{ user: string; assistant: string }>;
-        traceChunk.num_turns = turns.length;
-    } catch (error) {
-        console.error("Failed to parse JSON:", error);
-        return NextResponse.json({ error: "Failed to parse trace content" }, { status: 500 });
+    
+    if (traceMessages.length === 0) {
+        console.warn(`No trace messages found for topic ${topicId}`);
+    } else {
+        // Pair messages: even indices are user messages, odd indices are assistant messages
+        for (let j = 0; j < traceMessages.length; j += 2) {
+            turns.push({
+                user: traceMessages[j] || "",
+                assistant: traceMessages[j + 1] || ""  // Handle odd-length arrays
+            });
+        }
     }
+    
+    traceChunk.num_turns = turns.length;
 
-    console.log(`Processed ${i} chunks for topic ${topicId}`);
-    console.log(`Number of turns: ${turns.length}`);
+    // console.log(`\n${'='.repeat(80)}`);
+    // console.log(`TRACE PARSED - Topic ID: ${topicId}`);
+    // console.log(`${'='.repeat(80)}`);
+    // console.log(`Processed ${i} chunks | Total turns: ${turns.length}`);
+    // console.log(`Description: ${traceChunk.description}`);
+    // console.log(`Metadata: L0=${traceChunk.l0_cluster_id}, L1=${traceChunk.l1_cluster_id}, L2=${traceChunk.l2_cluster_id}`);
+    // console.log(`${'='.repeat(80)}\n`);
+
+    // Print each turn with clear separations
+    turns.forEach((turn, index) => {
+        console.log(`\n${'-'.repeat(80)}`);
+        console.log(`TURN ${index + 1} / ${turns.length}`);
+        console.log(`${'-'.repeat(80)}`);
+        
+        console.log(`\n👤 USER:`);
+        console.log(`${'─'.repeat(40)}`);
+        console.log(turn.user || '(empty)');
+        
+        console.log(`\n🤖 ASSISTANT:`);
+        console.log(`${'─'.repeat(40)}`);
+        console.log(turn.assistant || '(empty)');
+    });
+
+    console.log(`\n${'='.repeat(80)}`);
+    console.log(`END OF TRACE - ${turns.length} turns displayed`);
+    console.log(`${'='.repeat(80)}\n`);
 
     return NextResponse.json({
         success: true,
