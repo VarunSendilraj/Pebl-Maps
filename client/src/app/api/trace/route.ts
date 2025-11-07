@@ -36,8 +36,12 @@ export async function GET(request: NextRequest) {
         apiKey: process.env.PINECONE_API_KEY,
     });
 
-    // `traceId` is formatted as `topic_id_{chunk_no}`. We want to remove chunk_no from this.
-    const topicId = traceId.substring(0, traceId.lastIndexOf("_"));
+    // Extract base topicId - handle both formats:
+    // - Base ID: "topic_109" -> "topic_109"
+    // - Chunk ID: "topic_109_0" -> "topic_109"
+    // Use same logic as topics route for consistency
+    const baseIdMatch = traceId.match(/^(topic_\d+)/);
+    const topicId = baseIdMatch && baseIdMatch[1] ? baseIdMatch[1] : traceId.substring(0, traceId.lastIndexOf("_"));
     console.log(`Extracted base topicId: ${topicId} from traceId: ${traceId}`);
 
     // Initialize a new TraceChunkData object.

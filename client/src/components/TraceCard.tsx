@@ -1,6 +1,6 @@
 import React from "react";
 import { z } from "zod";
-import { useTrace } from "~/contexts/TraceContext";
+import { useTabs } from "~/contexts/TabsContext";
 
 interface TraceCardProps {
     traceId: string;
@@ -13,13 +13,13 @@ const TraceCardPropsSchema = z.object({
 });
 
 export default function TraceCard(props: TraceCardProps) {
-    const { selectTrace } = useTrace();
+    const { openTraceTab } = useTabs();
 
     // Validate using zod. Will throw if props are missing or empty.
     TraceCardPropsSchema.parse(props);
     const { traceId, traceDescription } = props;
     const updateSelectedTrace = () => {
-        selectTrace(traceId); // Selects the trace in the global TraceContext, which is read by TraceViewer.
+        openTraceTab(traceId, traceDescription);
     };
 
     return (

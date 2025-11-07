@@ -8,12 +8,18 @@ import TraceAgent from "~/components/TraceAgent";
 import ClusterTree from "~/components/cluster-tree/ClusterTree";
 import { NavigationProvider, useNavigationActions } from "~/contexts/NavigationContext";
 import { TraceProvider } from "~/contexts/TraceContext";
+import { TabsProvider, useTabs } from "~/contexts/TabsContext";
+import CanvasTabs from "~/components/CanvasTabs";
+import TraceTabContent from "~/components/TraceTabContent";
 
 function HomePageContent() {
   const [clusterData, setClusterData] = useState<ClusterNode[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const { selectNode } = useNavigationActions();
+  const { tabs, activeTabId, openTraceTab } = useTabs();
+  
+  const activeTab = tabs.find(tab => tab.id === activeTabId) || tabs[0];
 
   useEffect(() => {
     async function loadClusters() {
@@ -36,7 +42,8 @@ function HomePageContent() {
 
   const handleTopicSelect = (topic: TopicSummary) => {
     console.log("Selected topic:", topic);
-    // Future: Could show topic details in right panel or highlight in canvas
+    // Open trace tab when topic is clicked in ClusterTree
+    openTraceTab(topic.id, topic.text);
   };
 
   const handleNodeSelect = (node: ClusterNode) => {
@@ -66,31 +73,40 @@ function HomePageContent() {
           />
         )}
       </div>
-      <div className="flex w-[65%] flex-col m-4" style={{ backgroundColor: '#f0f0eb' }}>
-        {isLoading && (
-          <div className="flex items-center justify-center h-full">
-            <div className="flex flex-col items-center gap-4">
-              <div className="relative w-16 h-16">
-                <div className="absolute top-0 left-0 w-full h-full border-4 border-slate-200 rounded-full"></div>
-                <div className="absolute top-0 left-0 w-full h-full border-4 border-slate-600 rounded-full border-t-transparent animate-spin"></div>
-              </div>
-              <p className="text-slate-600 font-medium">Loading clusters...</p>
-            </div>
-          </div>
-        )}
-        {!isLoading && error && (
-          <div className="flex items-center justify-center h-full">
-            <p className="text-red-600 font-medium">Error: {error}</p>
-          </div>
-        )}
-        {!isLoading && !error && clusterData.length === 0 && (
-          <div className="flex items-center justify-center h-full">
-            <p className="text-slate-600 font-medium text-lg">Nothing found</p>
-          </div>
-        )}
-        {!isLoading && !error && clusterData.length > 0 && (
-          <BubbleCanvas data={clusterData} />
-        )}
+      <div className="flex w-[65%] flex-col m-4 rounded-lg overflow-hidden bg-white shadow-md" style={{ backgroundColor: '#f0f0eb' }}>
+        <CanvasTabs />
+        <div className="flex-1 overflow-hidden">
+          {activeTab.kind === 'map' ? (
+            <>
+              {isLoading && (
+                <div className="flex items-center justify-center h-full">
+                  <div className="flex flex-col items-center gap-4">
+                    <div className="relative w-16 h-16">
+                      <div className="absolute top-0 left-0 w-full h-full border-4 border-slate-200 rounded-full"></div>
+                      <div className="absolute top-0 left-0 w-full h-full border-4 border-slate-600 rounded-full border-t-transparent animate-spin"></div>
+                    </div>
+                    <p className="text-slate-600 font-medium">Loading clusters...</p>
+                  </div>
+                </div>
+              )}
+              {!isLoading && error && (
+                <div className="flex items-center justify-center h-full">
+                  <p className="text-red-600 font-medium">Error: {error}</p>
+                </div>
+              )}
+              {!isLoading && !error && clusterData.length === 0 && (
+                <div className="flex items-center justify-center h-full">
+                  <p className="text-slate-600 font-medium text-lg">Nothing found</p>
+                </div>
+              )}
+              {!isLoading && !error && clusterData.length > 0 && (
+                <BubbleCanvas data={clusterData} />
+              )}
+            </>
+          ) : (
+            <TraceTabContent traceId={activeTab.traceId!} />
+          )}
+        </div>
       </div>
       <div className="flex w-[25%] items-center justify-center border-2 border-gray-300 bg-gray-100 m-4 rounded-lg shadow-md">
         <TraceAgent />
@@ -103,7 +119,9 @@ export default function HomePage() {
   return (
     <NavigationProvider>
       <TraceProvider>
-        <HomePageContent />
+        <TabsProvider>
+          <HomePageContent />
+        </TabsProvider>
       </TraceProvider>
     </NavigationProvider>
   );
