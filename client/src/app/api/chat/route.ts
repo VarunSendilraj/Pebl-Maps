@@ -2,10 +2,18 @@ import { NextRequest } from "next/server";
 import { Agent, OpenAIConversationsSession, run } from "@openai/agents";
 import { z } from "zod";
 import { searchTracesTool } from "./tool";
+import { readFileSync } from "fs";
+import { join } from "path";
+import { parse } from "yaml";
 
 const traceAgentSchema = z.object({
     query: z.string(), // For now, the user just sends a query string via the API. Maybe define some more things later on.
 });
+
+// Load prompts from YAML file
+const promptsPath = join(process.cwd(), "src/app/api/chat/prompts.yaml");
+const promptsFile = readFileSync(promptsPath, "utf-8");
+const prompts = parse(promptsFile) as { traceAgent: { instructions: string } };
 
 // Basic API route to return all traces from Pinecone.
 export async function POST(request: NextRequest) {
@@ -27,7 +35,7 @@ export async function POST(request: NextRequest) {
                 // Initializing a new agent and session using the Agents/Conversations SDK.
                 const traceAgent = new Agent({
                     name: "traceAgent",
-                    instructions: "You are a helpful assistant that helps users uncover hidden insights from traces in Pinecone. Use the search_traces tool to find relevant traces based on user queries.",
+                    instructions: prompts.traceAgent.instructions,
                     tools: [searchTracesTool],
                 });
                 console.log("Trace agent initialized.");
