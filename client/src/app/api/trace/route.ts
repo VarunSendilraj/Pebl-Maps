@@ -11,6 +11,7 @@ interface TraceMetadata {
     l0_cluster_id: number,
     l1_cluster_id: number,
     l2_cluster_id: number,
+    l1_cluster_name?: string,
     country: string,
     description: string,
     hour: number,
@@ -55,7 +56,7 @@ export async function GET(request: NextRequest) {
         hour: 0,
         model: "",
         state: "",
-        toxic: false,
+        toxic: true,
         num_turns: 0,
     };
 
@@ -80,6 +81,7 @@ export async function GET(request: NextRequest) {
                 traceChunk.hour = Number(metadata?.hour ?? 0);
                 traceChunk.model = String(metadata?.model ?? "");
                 traceChunk.state = String(metadata?.state ?? "");
+                traceChunk.toxic = Boolean(metadata?.toxic ?? true);
                 totalTraceChunks = Number(metadata?.total_trace_chunks ?? 0);
             }
             
@@ -121,6 +123,20 @@ export async function GET(request: NextRequest) {
     }
     
     traceChunk.num_turns = turns.length;
+
+    // Fetch L1 cluster name if l1_cluster_id is available
+    if (traceChunk.l1_cluster_id > 0) {
+        try {
+            const l1ClusterId = `l1_cluster_${traceChunk.l1_cluster_id}`;
+            const l1Cluster = await pc.Index("openclio").fetch([l1ClusterId]);
+            if (l1Cluster.records && l1Cluster.records[l1ClusterId]) {
+                const l1Metadata = l1Cluster.records[l1ClusterId].metadata;
+                traceChunk.l1_cluster_name = String(l1Metadata?.name ?? "");
+            }
+        } catch (error) {
+            console.warn(`Failed to fetch L1 cluster name for l1_cluster_id ${traceChunk.l1_cluster_id}:`, error);
+        }
+    }
 
     // console.log(`\n${'='.repeat(80)}`);
     // console.log(`TRACE PARSED - Topic ID: ${topicId}`);

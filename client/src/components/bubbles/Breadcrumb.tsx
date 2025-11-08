@@ -16,7 +16,7 @@ export default function Breadcrumb({ path, currentRoot, onNavigate, onRoot }: Br
   const filteredPath = path.filter(node => node.id !== "__root__");
 
   return (
-    <div className="flex items-center justify-center gap-2 pb-4 text-sm">
+    <div className="flex items-center justify-center gap-2 pt-4 pb-2 text-sm">
       {/* Always show Root */}
       <button
         onClick={onRoot}

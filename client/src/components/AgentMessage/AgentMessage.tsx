@@ -7,7 +7,7 @@ interface AgentMessageProps {
 
 export default function AgentMessage({ text }: AgentMessageProps) {
     return (
-        <div className="mr-4 ml-2 max-w-full break-words text-foreground">
+        <div className="w-full text-sm leading-relaxed break-words" style={{ color: '#3d2819' }}>
             {formatMarkdown(text)}
         </div>
     );

@@ -29,8 +29,8 @@ export default function BubbleCanvas({ data }: BubbleCanvasProps) {
 
   // Access navigation context
   const navigationState = useNavigationState();
-  const { selectedNodeId, isSyncModeEnabled } = navigationState;
-  const { selectNode, navigateToRoot } = useNavigationActions();
+  const { selectedNodeId, isSyncModeEnabled, currentRootNode, breadcrumbPath: navBreadcrumbPath } = navigationState;
+  const { selectNode, navigateToRoot, toggleL0Expansion } = useNavigationActions();
 
   // Normalize data to array and create synthetic root if needed
   const rootData: ClusterNode = useMemo(() => {
@@ -603,10 +603,6 @@ export default function BubbleCanvas({ data }: BubbleCanvasProps) {
     const node = getNodeAt(e.clientX, e.clientY);
     if (!node) return;
 
-    // Check if node has children
-    const hasChildren = node.children && node.children.length > 0;
-    if (!hasChildren) return;
-
     // Find the ClusterNode in the current root
     const findNode = (n: ClusterNode, id: string): ClusterNode | null => {
       if (n.id === id) return n;
@@ -620,7 +616,24 @@ export default function BubbleCanvas({ data }: BubbleCanvasProps) {
     };
 
     const clusterNode = findNode(currentRoot, node.id);
-    if (!clusterNode || !clusterNode.children) return;
+    if (!clusterNode) return;
+
+    // Handle L0 cluster clicks - expand in tree and fetch traces
+    if (clusterNode.type === "l0") {
+      // Select the node
+      selectNode(node.id);
+      
+      // Expand the L0 node in ClusterTree (if sync mode is enabled)
+      if (isSyncModeEnabled) {
+        toggleL0Expansion(clusterNode.id);
+      }
+      
+      return;
+    }
+
+    // For non-L0 nodes, check if node has children for zooming
+    const hasChildren = node.children && node.children.length > 0;
+    if (!hasChildren || !clusterNode.children) return;
 
     // Update breadcrumb - add the clicked node (clusterNode) to the path
     // The breadcrumb represents the path TO the current view
@@ -731,6 +744,20 @@ export default function BubbleCanvas({ data }: BubbleCanvasProps) {
     draw();
   }, [hoveredNode]);
 
+  // Sync with NavigationContext when it changes externally (e.g., from home button)
+  useEffect(() => {
+    // Only sync if the navigation state differs from local state
+    if (currentRootNode && (
+      currentRootNode.id !== currentRoot.id ||
+      navBreadcrumbPath.length !== breadcrumbPath.length ||
+      navBreadcrumbPath.some((node, idx) => node.id !== breadcrumbPath[idx]?.id)
+    )) {
+      setCurrentRoot(currentRootNode);
+      setBreadcrumbPath(navBreadcrumbPath);
+      shouldAutoZoomRef.current = true;
+    }
+  }, [currentRootNode, navBreadcrumbPath, currentRoot.id, breadcrumbPath]);
+
   // Handle external selection changes from ClusterTree (only if sync mode is enabled)
   useEffect(() => {
     if (selectedNodeId && isSyncModeEnabled) {
@@ -768,12 +795,6 @@ export default function BubbleCanvas({ data }: BubbleCanvasProps) {
 
   return (
     <div className="w-full h-full flex flex-col">
-      <Breadcrumb
-        path={breadcrumbPath}
-        currentRoot={currentRoot}
-        onNavigate={handleBreadcrumbClick}
-        onRoot={() => handleBreadcrumbClick(-1)}
-      />
       <div ref={containerRef} className="relative w-full flex-1 min-h-0 overflow-hidden">
         <canvas
           ref={canvasRef}
@@ -803,11 +824,12 @@ export default function BubbleCanvas({ data }: BubbleCanvasProps) {
           </div>
         )}
       </div>
-      {breadcrumbPath.length > 0 && (
-        <p className="mt-2 text-xs text-slate-500">
-          Click any circle with child items to zoom in
-        </p>
-      )}
+      <Breadcrumb
+        path={breadcrumbPath}
+        currentRoot={currentRoot}
+        onNavigate={handleBreadcrumbClick}
+        onRoot={() => handleBreadcrumbClick(-1)}
+      />
     </div>
   );
 }

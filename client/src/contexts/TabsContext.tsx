@@ -6,15 +6,17 @@ export type CanvasTab = {
   id: string; 
   kind: 'map' | 'trace'; 
   label: string; 
-  traceId?: string 
+  traceId?: string;
+  l2_cluster_id?: number;
 };
 
 export interface TabsContextType {
   tabs: CanvasTab[];
   activeTabId: string;
-  openTraceTab: (traceId: string, label: string) => void;
+  openTraceTab: (traceId: string, label: string, l2_cluster_id?: number) => void;
   activateTab: (tabId: string) => void;
   closeTab: (tabId: string) => void;
+  updateTabClusterId: (traceId: string, l2_cluster_id: number) => void;
 }
 
 const TabsContext = createContext<TabsContextType | undefined>(undefined);
@@ -25,7 +27,7 @@ export function TabsProvider({ children }: { children: ReactNode }) {
   const [tabs, setTabs] = useState<CanvasTab[]>(initialTabs);
   const [activeTabId, setActiveTabId] = useState<string>('map');
 
-  const openTraceTab = useCallback((traceId: string, label: string) => {
+  const openTraceTab = useCallback((traceId: string, label: string, l2_cluster_id?: number) => {
     setTabs((prevTabs) => {
       // Check if trace tab already exists
       const existingTab = prevTabs.find(tab => tab.traceId === traceId);
@@ -41,6 +43,7 @@ export function TabsProvider({ children }: { children: ReactNode }) {
         kind: 'trace',
         label: label.length > 30 ? `${label.substring(0, 30)}...` : label,
         traceId: traceId,
+        l2_cluster_id: l2_cluster_id,
       };
       
       setActiveTabId(newTab.id);
@@ -70,12 +73,24 @@ export function TabsProvider({ children }: { children: ReactNode }) {
     });
   }, [activeTabId]);
 
+  const updateTabClusterId = useCallback((traceId: string, l2_cluster_id: number) => {
+    setTabs((prevTabs) => {
+      return prevTabs.map(tab => {
+        if (tab.traceId === traceId) {
+          return { ...tab, l2_cluster_id };
+        }
+        return tab;
+      });
+    });
+  }, []);
+
   const value: TabsContextType = {
     tabs,
     activeTabId,
     openTraceTab,
     activateTab,
     closeTab,
+    updateTabClusterId,
   };
 
   return (

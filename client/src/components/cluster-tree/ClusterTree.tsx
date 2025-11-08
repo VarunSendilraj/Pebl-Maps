@@ -1,18 +1,19 @@
 "use client";
 
-import { useState, useCallback, useRef, useEffect } from "react";
+import { useState, useCallback, useRef, useEffect, useImperativeHandle, forwardRef, useMemo } from "react";
 import type { ClusterNode, TopicSummary } from "~/lib/bubbles/types";
 import { fetchTopicsForL0 } from "~/lib/bubbles/api";
 import Orb from "./Orb";
 import LoadingOrbs from "./LoadingOrbs";
 import SyncToggle from "./SyncToggle";
 import { getColorForNode } from "~/lib/bubbles/colors";
-import { useNavigationState } from "~/contexts/NavigationContext";
+import { useNavigationState, useNavigationActions } from "~/contexts/NavigationContext";
 
 interface ClusterTreeProps {
   data: ClusterNode[];
   onSelectTopic?: (topic: TopicSummary) => void;
   onSelectNode?: (node: ClusterNode) => void;
+  onResetRequest?: () => void;
 }
 
 interface TopicCache {
@@ -21,11 +22,16 @@ interface TopicCache {
   error: string | null;
 }
 
-export default function ClusterTree({
+export interface ClusterTreeRef {
+  reset: () => void;
+}
+
+const ClusterTree = forwardRef<ClusterTreeRef, ClusterTreeProps>(function ClusterTree({
   data,
   onSelectTopic,
   onSelectNode,
-}: ClusterTreeProps) {
+  onResetRequest,
+}, ref) {
   const navigationState = useNavigationState();
   const [expandedIds, setExpandedIds] = useState<Set<string>>(new Set());
   const [topicCache, setTopicCache] = useState<Map<string, TopicCache>>(
@@ -35,6 +41,7 @@ export default function ClusterTree({
   const [focusedId, setFocusedId] = useState<string | null>(null);
   const treeRef = useRef<HTMLDivElement>(null);
   const nodeRefs = useRef<Map<string, HTMLDivElement>>(new Map());
+  const fetchingRef = useRef<Set<string>>(new Set()); // Track nodes currently being fetched
 
   // Flatten nodes for keyboard navigation
   const flattenNodes = useCallback((nodes: ClusterNode[], depth = 0): ClusterNode[] => {
@@ -50,6 +57,40 @@ export default function ClusterTree({
 
   const allNodes = flattenNodes(data);
 
+  // Expose reset function via ref
+  useImperativeHandle(ref, () => ({
+    reset: () => {
+      setExpandedIds(new Set());
+      setFocusedId(null);
+    },
+  }));
+
+  // Create synthetic root data for home button
+  const rootData: ClusterNode = useMemo(() => {
+    return { id: "__root__", name: "Root", type: "l2", children: data };
+  }, [data]);
+
+  // Handle reset request from home button
+  const handleResetRequest = useCallback(() => {
+    setExpandedIds(new Set());
+    setFocusedId(null);
+    onResetRequest?.();
+  }, [onResetRequest]);
+
+  // Helper function to find an L0 node by ID in the data tree
+  const findL0Node = useCallback((nodeId: string, nodes: ClusterNode[]): ClusterNode | null => {
+    for (const node of nodes) {
+      if (node.id === nodeId && node.type === "l0") {
+        return node;
+      }
+      if (node.children) {
+        const found = findL0Node(nodeId, node.children);
+        if (found) return found;
+      }
+    }
+    return null;
+  }, []);
+
   // Auto-expand and scroll to follow navigation from BubbleCanvas (only if sync mode is enabled)
   useEffect(() => {
     // Only auto-expand/scroll if sync mode is enabled
@@ -57,7 +98,7 @@ export default function ClusterTree({
       return;
     }
 
-    // Expand all nodes in the breadcrumb path + current root
+    // Expand all nodes in the breadcrumb path + current root + expanded L0 nodes
     const nodesToExpand = new Set<string>();
     
     // Add all breadcrumb nodes
@@ -69,6 +110,11 @@ export default function ClusterTree({
     if (navigationState.currentRootNode && navigationState.currentRootNode.id !== "__root__") {
       nodesToExpand.add(navigationState.currentRootNode.id);
     }
+    
+    // Add all expanded L0 nodes (these are expanded when clicking L0 clusters in BubbleCanvas)
+    navigationState.expandedL0NodeIds.forEach(l0NodeId => {
+      nodesToExpand.add(l0NodeId);
+    });
     
     // Merge with existing expanded nodes (don't collapse what user manually expanded)
     setExpandedIds(prev => {
@@ -88,7 +134,62 @@ export default function ClusterTree({
         });
       }
     }
-  }, [navigationState.breadcrumbPath, navigationState.currentRootNode, navigationState.selectedNodeId, navigationState.isSyncModeEnabled]);
+  }, [navigationState.breadcrumbPath, navigationState.currentRootNode, navigationState.selectedNodeId, navigationState.expandedL0NodeIds, navigationState.isSyncModeEnabled]);
+
+  // Auto-fetch topics for L0 nodes that are expanded via sync
+  useEffect(() => {
+    // Only auto-fetch if sync mode is enabled
+    if (!navigationState.isSyncModeEnabled) {
+      return;
+    }
+
+    // For each expanded L0 node, check if we need to fetch topics
+    navigationState.expandedL0NodeIds.forEach((l0NodeId) => {
+      // Skip if topics are already loaded or currently being fetched
+      if (topicCache.has(l0NodeId) || fetchingRef.current.has(l0NodeId)) {
+        return;
+      }
+
+      // Find the L0 node in the data tree
+      const l0Node = findL0Node(l0NodeId, data);
+      if (!l0Node || l0Node.type !== "l0") {
+        return;
+      }
+
+      // Mark as fetching
+      fetchingRef.current.add(l0NodeId);
+
+      // Mark as loading in cache
+      setTopicCache((prev) => {
+        const next = new Map(prev);
+        next.set(l0NodeId, { topics: [], loading: true, error: null });
+        return next;
+      });
+
+      // Fetch topics
+      fetchTopicsForL0(l0Node)
+        .then((topics) => {
+          fetchingRef.current.delete(l0NodeId);
+          setTopicCache((prev) => {
+            const next = new Map(prev);
+            next.set(l0NodeId, { topics, loading: false, error: null });
+            return next;
+          });
+        })
+        .catch((error) => {
+          fetchingRef.current.delete(l0NodeId);
+          setTopicCache((prev) => {
+            const next = new Map(prev);
+            next.set(l0NodeId, {
+              topics: [],
+              loading: false,
+              error: error instanceof Error ? error.message : "Failed to load topics",
+            });
+            return next;
+          });
+        });
+    });
+  }, [navigationState.expandedL0NodeIds, navigationState.isSyncModeEnabled, findL0Node, data]);
 
   // Keyboard navigation
   useEffect(() => {
@@ -213,10 +314,11 @@ export default function ClusterTree({
           tabIndex={isFocused ? 0 : -1}
           aria-expanded={hasChildren || isL0 ? isExpanded : undefined}
           className={`flex items-center gap-2 px-1.5 py-1.5 cursor-pointer rounded text-sm transition-colors relative ${
-            isHovered ? "bg-gray-50" : ""
-          } ${isFocused ? "ring-1 ring-gray-300 ring-inset" : ""}`}
+            isHovered ? "" : ""
+          } ${isFocused ? "ring-1 ring-[#8b4a3a] ring-inset ring-opacity-30" : ""}`}
           style={{
             paddingLeft: `${indentPx}px`,
+            backgroundColor: isHovered ? 'rgba(201, 196, 188, 0.4)' : 'transparent',
           }}
           onClick={() => {
             setFocusedId(node.id);
@@ -357,7 +459,7 @@ export default function ClusterTree({
       <div
         ref={treeRef}
         role="tree"
-        className="flex-1 overflow-y-auto p-2 min-h-0"
+        className="flex-1 overflow-y-auto px-3 py-2 min-h-0 sidebar-scroll"
         tabIndex={0}
         onFocus={() => {
           if (!focusedId && data.length > 0) {
@@ -374,7 +476,9 @@ export default function ClusterTree({
           <div className="relative">{data.map((node) => renderNode(node))}</div>
         )}
       </div>
-      <SyncToggle />
+      <SyncToggle onResetRequest={handleResetRequest} rootData={rootData} />
     </div>
   );
-}
+});
+
+export default ClusterTree;

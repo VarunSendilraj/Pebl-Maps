@@ -21,3 +21,21 @@
   --color-background: #faf9f6;
   --color-foreground: #3d2819;
 }
+
+/* Custom scrollbar for sidebar */
+.sidebar-scroll::-webkit-scrollbar {
+  width: 8px;
+}
+
+.sidebar-scroll::-webkit-scrollbar-track {
+  background: rgba(232, 220, 198, 0.3);
+}
+
+.sidebar-scroll::-webkit-scrollbar-thumb {
+  background: rgba(139, 74, 58, 0.2);
+  border-radius: 4px;
+}
+
+.sidebar-scroll::-webkit-scrollbar-thumb:hover {
+  background: rgba(139, 74, 58, 0.3);
+}
