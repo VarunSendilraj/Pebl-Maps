@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { Agent, OpenAIConversationsSession, run } from "@openai/agents";
 import { z } from "zod";
-import { searchTracesTool } from "./tool";
+import { searchTracesTool, getTraceByIdTool } from "./tool";
 import { readFileSync } from "fs";
 import { join } from "path";
 import { parse } from "yaml";
@@ -37,7 +37,7 @@ export async function POST(request: NextRequest) {
                 const traceAgent = new Agent({
                     name: "traceAgent",
                     instructions: prompts.traceAgent.instructions,
-                    tools: [searchTracesTool],
+                    tools: [searchTracesTool, getTraceByIdTool],
                 });
                 console.log("Trace agent initialized.");
                 // Initialize session with existing conversationId if provided, otherwise create new
