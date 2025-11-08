@@ -10,6 +10,7 @@ interface Message {
     id: string;
     text: string;
     role: "user" | "assistant";
+    toolCalls?: Array<{ toolName: string; status: 'pending' | 'completed' }>;
 }
 
 export default function TraceAgent() {
@@ -465,7 +466,7 @@ export default function TraceAgent() {
                                     {message.role === "user" ? (
                                         <UserMessage text={message.text} />
                                     ) : (
-                                        <AgentMessage text={message.text} />
+                                        <AgentMessage text={message.text} toolCalls={message.toolCalls} />
                                     )}
                                 </div>
                             ))}
@@ -715,12 +716,36 @@ async function streamResponse(
                         return;
                     }
 
-                    if (data.chunk) {
-                        // Update the assistant message incrementally
+                    if (data.type === 'tool_call' && data.toolName) {
+                        // Add tool call to the message
                         setConversationHistory((prev) =>
                             prev.map((msg) =>
                                 msg.id === assistantMessageId
-                                    ? { ...msg, text: msg.text + data.chunk }
+                                    ? {
+                                        ...msg,
+                                        toolCalls: [
+                                            ...(msg.toolCalls || []),
+                                            { toolName: data.toolName, status: 'pending' as const }
+                                        ]
+                                    }
+                                    : msg
+                            )
+                        );
+                    }
+
+                    if (data.chunk) {
+                        // Update the assistant message incrementally
+                        // When text starts arriving, mark pending tool calls as completed
+                        setConversationHistory((prev) =>
+                            prev.map((msg) =>
+                                msg.id === assistantMessageId
+                                    ? {
+                                        ...msg,
+                                        text: msg.text + data.chunk,
+                                        toolCalls: msg.toolCalls?.map(tc => 
+                                            tc.status === 'pending' ? { ...tc, status: 'completed' as const } : tc
+                                        )
+                                    }
                                     : msg
                             )
                         );
