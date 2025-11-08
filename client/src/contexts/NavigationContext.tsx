@@ -22,6 +22,9 @@ export interface NavigationState {
   // Set of L0 node IDs that are expanded in ClusterTree
   expandedL0NodeIds: Set<string>;
   
+  // Whether sync mode is enabled (bubble map and traces follow each other)
+  isSyncModeEnabled: boolean;
+  
   // Timestamp of last state update (useful for tracking user activity)
   lastUpdated: number;
 }
@@ -42,6 +45,9 @@ export interface NavigationActions {
   // Reset to initial state (root view, nothing selected)
   reset: () => void;
   
+  // Set sync mode (enables/disables automatic navigation synchronization)
+  setSyncMode: (enabled: boolean) => void;
+  
   // Get a formatted summary of current state (for chat context)
   getContextSummary: () => string;
 }
@@ -59,6 +65,7 @@ const initialState: NavigationState = {
   currentRootNode: null,
   breadcrumbPath: [],
   expandedL0NodeIds: new Set(),
+  isSyncModeEnabled: true, // Default to enabled for intuitive behavior
   lastUpdated: Date.now(),
 };
 
@@ -109,6 +116,14 @@ export function NavigationProvider({ children }: { children: ReactNode }) {
     });
   }, []);
 
+  const setSyncMode = useCallback((enabled: boolean) => {
+    setState((prev) => ({
+      ...prev,
+      isSyncModeEnabled: enabled,
+      lastUpdated: Date.now(),
+    }));
+  }, []);
+
   const getContextSummary = useCallback((): string => {
     const parts: string[] = [];
     
@@ -146,6 +161,7 @@ export function NavigationProvider({ children }: { children: ReactNode }) {
     navigateToRoot,
     toggleL0Expansion,
     reset,
+    setSyncMode,
     getContextSummary,
   };
 

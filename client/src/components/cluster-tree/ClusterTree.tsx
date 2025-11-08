@@ -5,6 +5,7 @@ import type { ClusterNode, TopicSummary } from "~/lib/bubbles/types";
 import { fetchTopicsForL0 } from "~/lib/bubbles/api";
 import Orb from "./Orb";
 import LoadingOrbs from "./LoadingOrbs";
+import SyncToggle from "./SyncToggle";
 import { getColorForNode } from "~/lib/bubbles/colors";
 import { useNavigationState } from "~/contexts/NavigationContext";
 
@@ -49,8 +50,13 @@ export default function ClusterTree({
 
   const allNodes = flattenNodes(data);
 
-  // Auto-expand and scroll to follow navigation from BubbleCanvas
+  // Auto-expand and scroll to follow navigation from BubbleCanvas (only if sync mode is enabled)
   useEffect(() => {
+    // Only auto-expand/scroll if sync mode is enabled
+    if (!navigationState.isSyncModeEnabled) {
+      return;
+    }
+
     // Expand all nodes in the breadcrumb path + current root
     const nodesToExpand = new Set<string>();
     
@@ -82,7 +88,7 @@ export default function ClusterTree({
         });
       }
     }
-  }, [navigationState.breadcrumbPath, navigationState.currentRootNode, navigationState.selectedNodeId]);
+  }, [navigationState.breadcrumbPath, navigationState.currentRootNode, navigationState.selectedNodeId, navigationState.isSyncModeEnabled]);
 
   // Keyboard navigation
   useEffect(() => {
@@ -347,25 +353,28 @@ export default function ClusterTree({
   };
 
   return (
-    <div
-      ref={treeRef}
-      role="tree"
-      className="h-full overflow-y-auto p-2"
-      tabIndex={0}
-      onFocus={() => {
-        if (!focusedId && data.length > 0) {
-          setFocusedId(data[0]?.id ?? null);
-        }
-      }}
-    >
-      {data.length === 0 ? (
-        <div className="text-sm p-4 text-center" style={{ color: "#8a817c" }}>
-          <div className="w-3 h-3 rounded-full bg-gray-300 opacity-50 mx-auto mb-2" />
-          No clusters found
-        </div>
-      ) : (
-        <div className="relative">{data.map((node) => renderNode(node))}</div>
-      )}
+    <div className="flex flex-col h-full">
+      <div
+        ref={treeRef}
+        role="tree"
+        className="flex-1 overflow-y-auto p-2 min-h-0"
+        tabIndex={0}
+        onFocus={() => {
+          if (!focusedId && data.length > 0) {
+            setFocusedId(data[0]?.id ?? null);
+          }
+        }}
+      >
+        {data.length === 0 ? (
+          <div className="text-sm p-4 text-center" style={{ color: "#8a817c" }}>
+            <div className="w-3 h-3 rounded-full bg-gray-300 opacity-50 mx-auto mb-2" />
+            No clusters found
+          </div>
+        ) : (
+          <div className="relative">{data.map((node) => renderNode(node))}</div>
+        )}
+      </div>
+      <SyncToggle />
     </div>
   );
 }

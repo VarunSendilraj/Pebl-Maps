@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState, useMemo } from "react";
+import { useEffect, useRef, useState, useMemo, useCallback } from "react";
 import { hierarchy, pack } from "d3-hierarchy";
 import type { ClusterNode, PackedNode, ClusterType } from "~/lib/bubbles/types";
 import Breadcrumb from "./Breadcrumb";
@@ -26,25 +26,26 @@ interface ZoomState {
 export default function BubbleCanvas({ data }: BubbleCanvasProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
-  
+
   // Access navigation context
-  const { selectedNodeId } = useNavigationState();
+  const navigationState = useNavigationState();
+  const { selectedNodeId, isSyncModeEnabled } = navigationState;
   const { selectNode, navigateToRoot } = useNavigationActions();
-  
+
   // Normalize data to array and create synthetic root if needed
   const rootData: ClusterNode = useMemo(() => {
     return Array.isArray(data)
       ? { id: "__root__", name: "Root", type: "l2", children: data }
       : data;
   }, [data]);
-  
+
   // Store reference to original full data tree for L2 ancestor lookup
   const originalFullData: ClusterNode = useMemo(() => {
     return Array.isArray(data)
       ? { id: "__root__", name: "Root", type: "l2" as ClusterType, children: data }
       : data;
   }, [data]);
-  
+
   const [currentRoot, setCurrentRoot] = useState<ClusterNode>(rootData);
   const [breadcrumbPath, setBreadcrumbPath] = useState<ClusterNode[]>([]);
   const [hoveredNode, setHoveredNode] = useState<PackedNode | null>(null);
@@ -106,7 +107,7 @@ export default function BubbleCanvas({ data }: BubbleCanvasProps) {
       }
       current = current.parent;
     }
-    
+
     // If not found in parent chain, search in original full data structure
     const l2Ancestor = findL2AncestorInData(node.id, originalFullData);
     if (l2Ancestor) {
@@ -119,12 +120,12 @@ export default function BubbleCanvas({ data }: BubbleCanvasProps) {
         depth: 1,
       } as PackedNode;
     }
-    
+
     return null;
   };
 
   // Navigate to a specific node by ID (for external selection sync)
-  const navigateToNode = (nodeId: string) => {
+  const navigateToNode = useCallback((nodeId: string) => {
     // Find the node and its path in the original data tree
     const findNodeWithPath = (
       tree: ClusterNode,
@@ -182,13 +183,13 @@ export default function BubbleCanvas({ data }: BubbleCanvasProps) {
         shouldAutoZoomRef.current = true;
       }
     }
-  };
+  }, [rootData, navigateToRoot]);
 
   // Get color based on L2 category and node level
   const getColor = (node: PackedNode): string => {
     // Find the L2 ancestor to determine the base color
     const l2Ancestor = findL2Ancestor(node);
-    
+
     if (!l2Ancestor) {
       // Fallback for nodes without L2 ancestor
       return "#D1D5DB"; // Gray
@@ -300,11 +301,11 @@ export default function BubbleCanvas({ data }: BubbleCanvasProps) {
 
     // Draw circles (outer to inner) - filter out root node (depth 0)
     const visibleNodes = nodes.filter((node) => node.depth > 0); // Skip synthetic root
-    
+
     // Determine the current level depth (direct children of currentRoot have depth 1)
     // Only show text labels for nodes at the current level (depth 1)
     const currentLevelDepth = 1;
-    
+
     const sortedNodes = [...visibleNodes].sort((a, b) => b.depth - a.depth);
     sortedNodes.forEach((node) => {
       const isHovered = hoveredNode?.id === node.id;
@@ -313,7 +314,7 @@ export default function BubbleCanvas({ data }: BubbleCanvasProps) {
 
       // Get the base color for this node
       let displayColor = getColor(node);
-      
+
       // For non-current level nodes, use a darker shade to make them stand out
       if (!isCurrentLevel) {
         const l2Ancestor = findL2Ancestor(node);
@@ -334,7 +335,7 @@ export default function BubbleCanvas({ data }: BubbleCanvasProps) {
         const pulseTime = (Date.now() % 2000) / 2000; // 2 second cycle
         const pulseScale = 1.2 + Math.sin(pulseTime * Math.PI * 2) * 0.15; // Oscillate between 1.05 and 1.35
         const pulseAlpha = Math.floor(40 + Math.sin(pulseTime * Math.PI * 2) * 20); // Oscillate alpha
-        
+
         const selectionGlow = ctx.createRadialGradient(
           node.x,
           node.y,
@@ -345,13 +346,13 @@ export default function BubbleCanvas({ data }: BubbleCanvasProps) {
         );
         selectionGlow.addColorStop(0, hexToRgba(displayColor, pulseAlpha.toString(16).padStart(2, '0')));
         selectionGlow.addColorStop(1, hexToRgba(displayColor, "00"));
-        
+
         ctx.fillStyle = selectionGlow;
         ctx.beginPath();
         ctx.arc(node.x, node.y, node.r * pulseScale, 0, Math.PI * 2);
         ctx.fill();
       }
-      
+
       // For sublevels, draw outer glow effect first
       if (!isCurrentLevel && !isSelected) {
         // Draw outer glow layer (larger, more transparent circle)
@@ -365,7 +366,7 @@ export default function BubbleCanvas({ data }: BubbleCanvasProps) {
         );
         glowGradient.addColorStop(0, hexToRgba(displayColor, "30"));
         glowGradient.addColorStop(1, hexToRgba(displayColor, "00"));
-        
+
         ctx.fillStyle = glowGradient;
         ctx.beginPath();
         ctx.arc(node.x, node.y, node.r * 1.3, 0, Math.PI * 2);
@@ -381,7 +382,7 @@ export default function BubbleCanvas({ data }: BubbleCanvasProps) {
         node.y,
         node.r
       );
-      
+
       // For sublevels, make the gradient more pronounced (stronger center glow)
       if (!isCurrentLevel) {
         gradient.addColorStop(0, hexToRgba(displayColor, fillAlphaStart));
@@ -400,7 +401,7 @@ export default function BubbleCanvas({ data }: BubbleCanvasProps) {
       // Draw border - special styling for selected, dotted for sublevels, solid for current level
       let borderColor: string;
       let borderWidth: number;
-      
+
       if (isSelected) {
         // Selected node gets bright, thick border
         borderColor = displayColor;
@@ -420,7 +421,7 @@ export default function BubbleCanvas({ data }: BubbleCanvasProps) {
       }
       ctx.strokeStyle = borderColor;
       ctx.lineWidth = borderWidth;
-      
+
       // Use dotted line for sublevels (but not for selected or hovered)
       if (!isCurrentLevel && !isHovered && !isSelected) {
         const dashPattern = [4, 4]; // Dotted pattern
@@ -428,11 +429,11 @@ export default function BubbleCanvas({ data }: BubbleCanvasProps) {
       } else {
         ctx.setLineDash([]); // Solid line
       }
-      
+
       ctx.beginPath();
       ctx.arc(node.x, node.y, node.r, 0, Math.PI * 2);
       ctx.stroke();
-      
+
       // Reset line dash
       ctx.setLineDash([]);
 
@@ -441,7 +442,7 @@ export default function BubbleCanvas({ data }: BubbleCanvasProps) {
         // Use a darker shade of the color for text to ensure legibility
         const textColor = getTextColor(displayColor);
         ctx.fillStyle = textColor;
-        
+
         // Larger font size - proportional to circle radius
         const fontSize = Math.min(20, Math.max(14, node.r / 2.5));
         ctx.font = `bold ${fontSize}px -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif`;
@@ -452,11 +453,11 @@ export default function BubbleCanvas({ data }: BubbleCanvasProps) {
         const words = node.name.split(" ");
         const maxWidth = node.r * 1.6;
         const lineHeight = fontSize * 1.3; // Line height proportional to font size
-        
+
         // First pass: determine how many lines we'll have
         const lines: string[] = [];
         let currentLine = "";
-        
+
         for (const word of words) {
           if (!word) continue;
           const testLine = currentLine + (currentLine ? " " : "") + word;
@@ -660,7 +661,7 @@ export default function BubbleCanvas({ data }: BubbleCanvasProps) {
     } else {
       const targetNode = breadcrumbPath[index];
       if (!targetNode) return;
-      
+
       const newPath = breadcrumbPath.slice(0, index + 1);
       setBreadcrumbPath(newPath);
       navigateToRoot(targetNode, newPath);
@@ -690,7 +691,7 @@ export default function BubbleCanvas({ data }: BubbleCanvasProps) {
     selectNode(null);
     zoomStateRef.current = { k: 1, x: 0, y: 0 };
     shouldAutoZoomRef.current = false;
-    
+
     // Calculate initial fit zoom - use double requestAnimationFrame to ensure container is fully sized
     requestAnimationFrame(() => {
       requestAnimationFrame(() => {
@@ -730,25 +731,25 @@ export default function BubbleCanvas({ data }: BubbleCanvasProps) {
     draw();
   }, [hoveredNode]);
 
-  // Handle external selection changes from ClusterTree
+  // Handle external selection changes from ClusterTree (only if sync mode is enabled)
   useEffect(() => {
-    if (selectedNodeId) {
+    if (selectedNodeId && isSyncModeEnabled) {
       navigateToNode(selectedNodeId);
     }
-  }, [selectedNodeId]);
+  }, [selectedNodeId, isSyncModeEnabled, navigateToNode]);
 
   // Continuous animation loop for pulsing selected node
   useEffect(() => {
     if (!selectedNodeId) return;
-    
+
     let animationId: number;
     const animate = () => {
       draw();
       animationId = requestAnimationFrame(animate);
     };
-    
+
     animationId = requestAnimationFrame(animate);
-    
+
     return () => {
       if (animationId) {
         cancelAnimationFrame(animationId);
