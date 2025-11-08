@@ -20,7 +20,7 @@ export default function UserMessage({ text }: UserMessageProps) {
                     color: '#3d2819',
                 }}
             >
-                <span className="text-sm leading-relaxed whitespace-pre-wrap break-words font-mono">
+                <span className="text-sm leading-relaxed whitespace-pre-wrap break-words">
                     {text}
                 </span>
             </div>
