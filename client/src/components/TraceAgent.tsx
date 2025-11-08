@@ -3,6 +3,8 @@ import React, { useState, useEffect, useRef } from "react";
 import type { Dispatch, SetStateAction } from "react";
 import UserMessage from "./UserMessage";
 import AgentMessage from "./AgentMessage";
+import TraceAutocomplete from "./TraceAutocomplete";
+import { isPrefetched } from "~/app/api/prefetch/searchUtils";
 
 interface Message {
     id: string;
@@ -16,11 +18,34 @@ export default function TraceAgent() {
     const [isProcessing, setIsProcessing] = useState<boolean>(false);
     const [conversationId, setConversationId] = useState<string | null>(null);
     const messagesEndRef = useRef<HTMLDivElement>(null);
+    const inputRef = useRef<HTMLInputElement>(null);
+    const containerRef = useRef<HTMLDivElement>(null);
+    const [showAutocomplete, setShowAutocomplete] = useState<boolean>(false);
+    const [autocompleteQuery, setAutocompleteQuery] = useState<string>("");
 
     // Auto-scroll to bottom when conversation history changes
     useEffect(() => {
         messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
     }, [conversationHistory]);
+
+    // Handle click outside to dismiss autocomplete
+    useEffect(() => {
+        const handleClickOutside = (e: MouseEvent) => {
+            if (showAutocomplete) {
+                // If the container doesn't contain the target, dismiss the autocomplete
+                if (containerRef.current && !containerRef.current.contains(e.target as Node)) {
+                    setShowAutocomplete(false);
+                }
+            }
+        };
+
+        if (showAutocomplete) {
+            document.addEventListener("mousedown", handleClickOutside);
+            return () => { // Cleanup function to remove the event listener when the component unmounts
+                document.removeEventListener("mousedown", handleClickOutside);
+            };
+        }
+    }, [showAutocomplete]);
 
     const handleSend = async () => {
         if (!inputValue.trim() || isProcessing) return;
@@ -35,6 +60,7 @@ export default function TraceAgent() {
         setConversationHistory((prev) => [...prev, userMessage]);
         setInputValue("");
         setIsProcessing(true);
+        setShowAutocomplete(false);
 
         // Create assistant message placeholder
         const assistantMessageId = (Date.now() + 1).toString();
@@ -64,14 +90,70 @@ export default function TraceAgent() {
         }
     };
 
+    const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+        const value = e.target.value;
+        const cursorPosition = e.target.selectionStart || 0;
+        setInputValue(value);
+
+        if (!isPrefetched()) {
+            return;
+        }
+
+        const atIndex = value.lastIndexOf("@");
+
+        // Check if @ was just typed as a new character preceded by whitespace
+        if (!showAutocomplete) {
+            if (atIndex !== -1 && cursorPosition === atIndex + 1) {
+                // Check if @ is preceded by whitespace or is at the start
+                const charBeforeAt = atIndex > 0 ? value[atIndex - 1] : " ";
+                if (charBeforeAt === " ") {
+                    // New @ detected - turn on autocomplete mode
+                    setAutocompleteQuery("");
+
+                    setShowAutocomplete(true);
+                }
+            }
+        } else {
+            // We're in autocomplete mode - update the query
+            if (atIndex !== -1 && cursorPosition > atIndex) {
+                const query = value.substring(atIndex + 1, cursorPosition);
+                setAutocompleteQuery(query);
+            } else {
+                // @ was deleted or cursor moved before it
+                setShowAutocomplete(false);
+            }
+        }
+    };
+
+    const handleTraceSelect = (trace: { id: string; description: string }) => {
+        // Replace the @query with the selected trace
+        const atIndex = inputValue.lastIndexOf("@");
+        if (atIndex !== -1) {
+            const newValue = inputValue.substring(0, atIndex) + `<tid=${trace.id}>`;
+            setInputValue(newValue);
+        }
+        setShowAutocomplete(false);
+        inputRef.current?.focus();
+    };
+
     const handleKeyPress = (e: React.KeyboardEvent<HTMLInputElement>) => {
+        if (e.key === "Escape") {
+            setShowAutocomplete(false);
+            return;
+        }
+
+        // Don't handle Enter if autocomplete is showing (let autocomplete handle it)
+        if (showAutocomplete && (e.key === "Enter" || e.key === "ArrowDown" || e.key === "ArrowUp")) {
+            return;
+        }
+
         if (e.key === "Enter" && !isProcessing) {
             handleSend();
         }
     };
 
     return (
-        <div className="flex flex-col h-full w-full p-6 overflow-hidden">
+        <div ref={containerRef} className="flex flex-col h-full w-full p-6 overflow-hidden relative">
             {/* Title and Subtitle Section */}
             {conversationHistory.length === 0 && (
                 <div className="flex flex-col mb-8">
@@ -100,12 +182,22 @@ export default function TraceAgent() {
                 </div>
             </div>
 
+            {/* Trace Explorer - positioned above chat input */}
+            {showAutocomplete && (
+                <TraceAutocomplete
+                    query={autocompleteQuery}
+                    onSelect={handleTraceSelect}
+                    inputRef={inputRef}
+                />
+            )}
+
             {/* Chat Input Container */}
-            <div className="bg-white rounded-lg p-4 flex items-center gap-3 w-full overflow-hidden border border-gray-300">
+            <div className="bg-white rounded-lg p-4 flex items-center gap-3 w-full overflow-hidden border border-gray-300 relative">
                 <input
+                    ref={inputRef}
                     type="text"
                     value={inputValue}
-                    onChange={(e) => setInputValue(e.target.value)}
+                    onChange={handleInputChange}
                     onKeyDown={handleKeyPress}
                     placeholder="How can I help you today?"
                     disabled={isProcessing}
@@ -166,7 +258,7 @@ async function streamResponse(
         headers: {
             "Content-Type": "application/json",
         },
-        body: JSON.stringify({ 
+        body: JSON.stringify({
             query: query,
             ...(conversationId && { conversationId })
         }),
