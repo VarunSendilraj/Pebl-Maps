@@ -5,9 +5,11 @@
 
 // Color palette for L2 categories
 export const CATEGORY_COLORS: { [key: string]: string } = {
-  "l2-1": "#F9F0C7", // Pale Yellow for Software Development Tutorials
+  "l2-1": "#F4D03F", // Golden Yellow for Software Development Tutorials (darker shade for better dotted line visibility)
   "l2-2": "#BD8BA0", // Muted Rose for Data Science & Analytics
   "l2-3": "#E8A7B9", // Soft Pink for DevOps & Infrastructure
+  "l2-4": "#F8C471", // Light Orange for Vocal Technique (lighter shade for better visibility)
+  "l2-5": "#5DADE2", // Sky Blue for additional clusters
   // Future categories can use: #3F4A59 (Dark Blue/Slate) or similar shades
 };
 
