@@ -22,6 +22,18 @@ function HomePageContent() {
   const activeTab = tabs.find(tab => tab.id === activeTabId) || tabs[0];
 
   useEffect(() => {
+    console.log("Prefetching traces...");
+    fetch("/api/prefetch")
+      .then(res => res.json())
+      .then(async (data) => {
+        if (data.traces) {
+          const { populateTraces } = await import("~/app/api/prefetch/searchUtils");
+          populateTraces(data.traces);
+          console.log("Traces prefetched");
+        }
+      })
+      .catch(err => console.error("Failed to prefetch traces:", err));
+
     async function loadClusters() {
       try {
         setIsLoading(true);

@@ -97,7 +97,6 @@ export function formatMarkdown(text: string): React.ReactNode {
         // Check for trace format: <trace_id="..." trace_description="...">
         const traceMatch = trimmedLine.match(/^<trace_id="([^"]+)"\s+trace_description="([^"]+)">$/);
         if (traceMatch) {
-            console.log('Trace detected:', { traceId: traceMatch[1], traceDescription: traceMatch[2] });
             processParagraph();
             const traceId = traceMatch[1];
             const traceDescription = traceMatch[2];

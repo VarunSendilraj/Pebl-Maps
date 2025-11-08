@@ -2,13 +2,50 @@ import { z } from "zod";
 import { tool } from "@openai/agents";
 import { Pinecone } from "@pinecone-database/pinecone";
 import { OpenAI } from "openai";
+import { trace } from "node:console";
 
 interface Trace {
     id: string,
     description: string,
 }
 
-// Define the search traces tool function
+export const getTraceByIdTool = tool({
+    name: "get_trace_by_id",
+    description: "Retrieves the full details of a trace from Pinecone by its id, performing an exact id match. Only use this tool if the user explicitly references a trace id using the format <tid={id}>. Do not use for partial matches, descriptions, or general queries. Return the complete trace details if found; otherwise, indicate no match.",
+    parameters: z.object({
+        id: z.string().describe("The id of the trace to get. Should be the id part of the <tid={id}> format."),
+    }),
+    execute: async (input: { id: string }) => {
+        if (!process.env.PINECONE_API_KEY) {
+            throw new Error("PINECONE_API_KEY is not set");
+        }
+        const pc = new Pinecone({
+            apiKey: process.env.PINECONE_API_KEY,
+        });
+
+        const result = await pc.Index("openclio").fetch([input.id]);
+        if (result.records && result.records[input.id]) {
+            const metadata = result?.records?.[input.id]?.metadata;
+            if (metadata?.description === undefined || typeof metadata.description !== 'string') {
+                throw new Error("Metadata description is undefined.");
+            }
+            const trace: Trace = {
+                id: input.id,
+                description: metadata?.description,
+            }
+            console.log("getTraceById tool executed successfully.");
+            console.log("Trace:", trace);
+            return {
+                success: true, trace: trace
+            };
+
+        } else {
+            return { success: false, error: "Trace not found" };
+        }
+    },
+});
+
+
 export const searchTracesTool = tool({
     name: "search_traces",
     description: "Search for traces in Pinecone using semantic similarity. Returns relevant traces based on the query.",
