@@ -30,9 +30,9 @@ function HomePageContent() {
     fetch("/api/prefetch")
       .then(res => res.json())
       .then(async (data) => {
-        if (data.traces) {
-          const { populateTraces } = await import("~/app/api/prefetch/searchUtils");
-          populateTraces(data.traces);
+        if (data) {
+          const { populateCache } = await import("~/app/api/prefetch/searchUtils");
+          populateCache(data);
           console.log("Traces prefetched");
         }
       })

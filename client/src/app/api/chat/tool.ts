@@ -45,14 +45,29 @@ export const getTraceByIdTool = tool({
     },
 });
 
+const searchTracesParameters = z.object({
+    query: z.string().describe("The search query to find relevant traces"),
+    l0_cluster_id: z.number()
+        .nullable()
+        .default(null)
+        .describe("Optional L0 cluster ID to filter traces. Only use when explicitly mentioned or tagged (e.g., <tid=l0_cluster_22>) in the user's query. Extract the numeric ID from the tag (e.g., from <tid=l0_cluster_22> extract 22). Pass null when not filtering by L0."),
+    l1_cluster_id: z.number()
+        .nullable()
+        .default(null)
+        .describe("Optional L1 cluster ID to filter traces. Only use when explicitly mentioned or tagged (e.g., <tid=l1_cluster_22>) in the user's query. Extract the numeric ID from the tag (e.g., from <tid=l1_cluster_22> extract 22). Pass null when not filtering by L1."),
+    l2_cluster_id: z.number()
+        .nullable()
+        .default(null)
+        .describe("Optional L2 cluster ID to filter traces. Only use when explicitly mentioned or tagged (e.g., <tid=l2_cluster_22>) in the user's query. Extract the numeric ID from the tag (e.g., from <tid=l2_cluster_22> extract 22). Pass null when not filtering by L2."),
+});
+
+type SearchTracesInput = z.infer<typeof searchTracesParameters>;
 
 export const searchTracesTool = tool({
     name: "search_traces",
-    description: "Search for traces in Pinecone using semantic similarity. Returns relevant traces based on the query.",
-    parameters: z.object({
-        query: z.string().describe("The search query to find relevant traces"),
-    }),
-    execute: async (input: { query: string }) => {
+    description: "Search for traces in Pinecone using semantic similarity. Returns relevant traces based on the query. Optionally filter by cluster level (L0, L1, or L2) when a cluster ID is explicitly mentioned or tagged in the conversation.",
+    parameters: searchTracesParameters,
+    execute: async (input: SearchTracesInput) => {
         try {
             if (!process.env.PINECONE_API_KEY) {
                 throw new Error("PINECONE_API_KEY is not set");
@@ -70,9 +85,11 @@ export const searchTracesTool = tool({
                 apiKey: process.env.OPENAI_API_KEY,
             });
 
+            const { query, l0_cluster_id, l1_cluster_id, l2_cluster_id } = input;
+
             const response = await openai.embeddings.create({
                 model: "text-embedding-3-large",
-                input: input.query,
+                input: query,
             });
 
             const embedding = response?.data[0]?.embedding as number[];
@@ -80,13 +97,25 @@ export const searchTracesTool = tool({
                 throw new Error("OpenAI embedding is undefined.");
             }
 
+            // Build filter dynamically based on provided cluster IDs
+            const filter: Record<string, unknown> = {
+                type: "topic",
+            };
+
+            // Add cluster filters if provided (only one level at a time)
+            if (l0_cluster_id !== null) {
+                filter.L0_cluster_id = l0_cluster_id;
+            } else if (l1_cluster_id !== null) {
+                filter.L1_cluster_id = l1_cluster_id;
+            } else if (l2_cluster_id !== null) {
+                filter.L2_cluster_id = l2_cluster_id;
+            }
+
             const result = await pc.Index("openclio").query({
                 vector: embedding,
                 topK: 10,
                 includeMetadata: true,
-                filter: {
-                    type: "topic",
-                },
+                filter,
             });
 
             const matches: Trace[] = result.matches.map((match) => {
