@@ -1,5 +1,6 @@
 import React from "react";
 import TraceCard from "../TraceCard";
+import EvalCard from "../EvalCard";
 
 export function formatMarkdown(text: string): React.ReactNode {
     if (!text) return null;
@@ -91,6 +92,32 @@ export function formatMarkdown(text: string): React.ReactNode {
 
         if (inCodeBlock) {
             codeBlockContent.push(line); // If we're in a code block, add the line to the code block content and continue onto the next line.
+            continue;
+        }
+
+        // Check for eval format: <eval_name="..." status="...">
+        const evalMatch = trimmedLine.match(/^<eval_name="([^"]+)"\s+status="([^"]+)">$/);
+        if (evalMatch) {
+            processParagraph();
+            const evalName = evalMatch[1];
+            const status = evalMatch[2];
+            let evalCard: React.ReactNode = null;
+            try {
+                evalCard = React.createElement(EvalCard, {
+                    key: elements.length,
+                    evalName: evalName ?? '',
+                    status: status ?? ''
+                });
+            } catch (err) {
+                // If EvalCard's zod validation fails, output an error element to prevent breaking the message rendering
+                evalCard = React.createElement('div', {
+                    key: elements.length,
+                    className: 'bg-red-100 text-red-800 p-2 rounded mb-2'
+                }, `Failed to render eval card: ${err instanceof Error ? err.message : String(err)}`);
+            }
+            if (evalCard) {
+                elements.push(evalCard);
+            }
             continue;
         }
 

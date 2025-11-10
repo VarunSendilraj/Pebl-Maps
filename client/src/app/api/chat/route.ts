@@ -8,6 +8,7 @@ import { parse } from "yaml";
 
 const traceAgentSchema = z.object({
     query: z.string(), // For now, the user just sends a query string via the API. Maybe define some more things later on.
+    mode: z.enum(["ask", "agent"]).optional().default("ask"), // Mode: "ask" for regular agent, "agent" for test output
     conversationId: z.string().optional(), // Optional conversation ID for session persistence
 });
 
@@ -27,8 +28,62 @@ export async function POST(request: NextRequest) {
         );
     }
     console.log(`Request body: ${JSON.stringify(body)}`);
+    const mode = validationResponse.data.mode || "ask";
 
-    // Create a ReadableStream for streaming the response
+    // If agent mode, return predefined demo output
+    if (mode === "agent") {
+        const encoder = new TextEncoder();
+        const initialMessage = "I'll set up an evaluation for NSFW Content Detection. This will monitor and analyze potential NSFW Content in the system.";
+        const evalCardFormat = '\n<eval_name="NSFW Content Detection" status="active">';
+        
+        const stream = new ReadableStream({
+            async start(controller) {
+                try {
+                    // Wait 1 second before starting to stream
+                    await new Promise(resolve => setTimeout(resolve, 1000));
+                    
+                    // Stream the initial message word by word to match ask mode behavior
+                    const words = initialMessage.split(' ');
+                    for (let i = 0; i < words.length; i++) {
+                        const word = words[i];
+                        const chunk = i === 0 ? word : ' ' + word;
+                        controller.enqueue(encoder.encode(`data: ${JSON.stringify({ chunk: chunk })}\n\n`));
+                        // Small delay to simulate streaming (similar to ask mode)
+                        await new Promise(resolve => setTimeout(resolve, 50));
+                    }
+                    
+                    // Wait 1.5 seconds before showing the eval card
+                    await new Promise(resolve => setTimeout(resolve, 1500));
+                    
+                    // Stream the eval card format as a single chunk (matching ask mode behavior)
+                    controller.enqueue(encoder.encode(`data: ${JSON.stringify({ chunk: evalCardFormat })}\n\n`));
+                    
+                    // Send completion signal
+                    controller.enqueue(encoder.encode(`data: ${JSON.stringify({
+                        done: true,
+                        conversationId: validationResponse.data.conversationId || null
+                    })}\n\n`));
+                    controller.close();
+                } catch (error) {
+                    console.error("Error in demo streaming:", error);
+                    controller.enqueue(
+                        encoder.encode(`data: ${JSON.stringify({ error: "Failed to generate demo response" })}\n\n`)
+                    );
+                    controller.close();
+                }
+            },
+        });
+
+        return new Response(stream, {
+            headers: {
+                "Content-Type": "text/event-stream",
+                "Cache-Control": "no-cache",
+                "Connection": "keep-alive",
+            },
+        });
+    }
+
+    // Create a ReadableStream for streaming the response (ask mode)
     const encoder = new TextEncoder();
     const stream = new ReadableStream({
         async start(controller) {

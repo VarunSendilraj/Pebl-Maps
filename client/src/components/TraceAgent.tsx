@@ -117,7 +117,7 @@ export default function TraceAgent() {
         setConversationHistory((prev) => [...prev, assistantMessage]);
 
         try {
-            await streamResponse(userMessage.text, assistantMessageId, conversationId, setConversationHistory, setConversationId);
+            await streamResponse(userMessage.text, assistantMessageId, conversationId, setConversationHistory, setConversationId, mode);
         } catch (error) {
             console.error("Failed to send message:", error);
             // Update the assistant message with error
@@ -271,7 +271,7 @@ export default function TraceAgent() {
         setConversationHistory((prev) => [...prev, assistantMessage]);
 
         try {
-            await streamResponse(promptText, assistantMessageId, conversationId, setConversationHistory, setConversationId);
+            await streamResponse(promptText, assistantMessageId, conversationId, setConversationHistory, setConversationId, mode);
         } catch (error) {
             console.error("Failed to send message:", error);
             // Update the assistant message with error
@@ -687,7 +687,8 @@ async function streamResponse(
     assistantMessageId: string,
     conversationId: string | null,
     setConversationHistory: Dispatch<SetStateAction<Message[]>>,
-    setConversationId: Dispatch<SetStateAction<string | null>>
+    setConversationId: Dispatch<SetStateAction<string | null>>,
+    mode: "ask" | "agent"
 ) {
     const response = await fetch("/api/chat", {
         method: "POST",
@@ -696,6 +697,7 @@ async function streamResponse(
         },
         body: JSON.stringify({
             query: query,
+            mode: mode,
             ...(conversationId && { conversationId })
         }),
     });
