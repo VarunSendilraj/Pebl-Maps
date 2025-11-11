@@ -33,8 +33,8 @@ export async function POST(request: NextRequest) {
     // If agent mode, return predefined demo output
     if (mode === "agent") {
         const encoder = new TextEncoder();
-        const initialMessage = "I'll set up an evaluation for NSFW Content Detection. This will monitor and analyze potential NSFW Content in the system.";
-        const evalCardFormat = '\n<eval_name="NSFW Content Detection" status="active">';
+        const initialMessage = "I'll set up an evaluation for Hallucinating Imports on Coding Tasks. This will monitor and detect import errors and hallucinated imports in code generation tasks.";
+        const evalCardFormat = '\n<eval_name="Hallucinating Imports on Coding Tasks" status="active">';
         
         const stream = new ReadableStream({
             async start(controller) {

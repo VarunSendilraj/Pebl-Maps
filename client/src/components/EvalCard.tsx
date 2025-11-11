@@ -1,5 +1,6 @@
-import React from "react";
+import React, { useEffect } from "react";
 import { z } from "zod";
+import { useEvalActions } from "~/contexts/EvalContext";
 
 interface EvalCardProps {
     evalName: string;
@@ -15,8 +16,20 @@ export default function EvalCard(props: EvalCardProps) {
     // Validate using zod. Will throw if props are missing or empty.
     EvalCardPropsSchema.parse(props);
     const { evalName, status } = props;
+    const { setEvalActive } = useEvalActions();
 
     const isActive = status.toLowerCase() === "active";
+
+    // Update eval status when component mounts or status changes
+    useEffect(() => {
+        setEvalActive(isActive);
+        // Cleanup: set eval to inactive when component unmounts if it was active
+        return () => {
+            if (isActive) {
+                setEvalActive(false);
+            }
+        };
+    }, [isActive, setEvalActive]);
     const statusColor = isActive ? "#10b981" : "#6b7280"; // green-500 for active, gray-500 for inactive
 
     return (

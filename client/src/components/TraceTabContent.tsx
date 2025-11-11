@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useTabs } from "~/contexts/TabsContext";
+import { useEval } from "~/contexts/EvalContext";
 import UserIcon from "~/components/UserIcon";
 import AssistantIcon from "~/components/AssistantIcon";
 
@@ -36,7 +37,9 @@ export default function TraceTabContent({ traceId }: TraceTabContentProps) {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [expandedMessages, setExpandedMessages] = useState<Set<string>>(new Set());
+  const [showImportError, setShowImportError] = useState<boolean>(false);
   const { updateTabClusterId } = useTabs();
+  const { isEvalActive } = useEval();
 
   const toggleMessage = (messageId: string) => {
     setExpandedMessages(prev => {
@@ -49,6 +52,22 @@ export default function TraceTabContent({ traceId }: TraceTabContentProps) {
       return newSet;
     });
   };
+
+  // Handle 10-second delay for Import Error score when eval becomes active
+  useEffect(() => {
+    if (isEvalActive) {
+      const timer = setTimeout(() => {
+        setShowImportError(true);
+      }, 10000); // 10 seconds delay
+
+      return () => {
+        clearTimeout(timer);
+      };
+    } else {
+      // Reset when eval becomes inactive
+      setShowImportError(false);
+    }
+  }, [isEvalActive]);
 
   useEffect(() => {
     async function fetchTrace() {
@@ -261,7 +280,7 @@ export default function TraceTabContent({ traceId }: TraceTabContentProps) {
           )}
 
           {/* Scores Section */}
-          {traceData.metadata.toxic !== undefined && (
+          {(traceData.metadata.toxic !== undefined || showImportError) && (
             <div className="space-y-1.5 pt-2">
               <div className="flex items-center gap-2">
                 <svg
@@ -281,14 +300,22 @@ export default function TraceTabContent({ traceId }: TraceTabContentProps) {
                 <span className="text-xs font-medium text-primary/60 uppercase tracking-wide">Scores</span>
               </div>
               <div className="flex flex-wrap gap-2">
-                <span className={`inline-flex items-center gap-1.5 text-xs px-2.5 py-1 rounded-md border ${
-                  traceData.metadata.toxic
-                    ? 'bg-red-50 text-red-700 border-red-200'
-                    : 'bg-green-100/60 text-green-600 border-green-200/60'
-                }`}>
-                  <span className="font-medium">Toxic:</span>
-                  <span>{traceData.metadata.toxic ? 'True' : 'False'}</span>
-                </span>
+                {traceData.metadata.toxic !== undefined && (
+                  <span className={`inline-flex items-center gap-1.5 text-xs px-2.5 py-1 rounded-md border ${
+                    traceData.metadata.toxic
+                      ? 'bg-red-50 text-red-700 border-red-200'
+                      : 'bg-green-100/60 text-green-600 border-green-200/60'
+                  }`}>
+                    <span className="font-medium">Toxic:</span>
+                    <span>{traceData.metadata.toxic ? 'True' : 'False'}</span>
+                  </span>
+                )}
+                {showImportError && (
+                  <span className="inline-flex items-center gap-1.5 text-xs px-2.5 py-1 rounded-md border bg-red-50 text-red-700 border-red-200">
+                    <span className="font-medium">Import Error:</span>
+                    <span>True</span>
+                  </span>
+                )}
               </div>
             </div>
           )}

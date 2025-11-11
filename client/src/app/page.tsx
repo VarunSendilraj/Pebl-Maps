@@ -10,6 +10,7 @@ import { NavigationProvider, useNavigationActions } from "~/contexts/NavigationC
 import { TraceProvider } from "~/contexts/TraceContext";
 import { TabsProvider, useTabs } from "~/contexts/TabsContext";
 import { UIProvider } from "~/contexts/UIContext";
+import { EvalProvider } from "~/contexts/EvalContext";
 import CanvasTabs from "~/components/CanvasTabs";
 import TraceTabContent from "~/components/TraceTabContent";
 import Workspace from "~/components/layout/Workspace";
@@ -161,7 +162,9 @@ export default function HomePage() {
       <TraceProvider>
         <TabsProvider>
           <UIProvider>
-            <HomePageContent />
+            <EvalProvider>
+              <HomePageContent />
+            </EvalProvider>
           </UIProvider>
         </TabsProvider>
       </TraceProvider>
