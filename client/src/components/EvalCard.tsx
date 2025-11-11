@@ -28,7 +28,7 @@ export default function EvalCard(props: EvalCardProps) {
         >
             <div className="flex items-center justify-between mb-2">
                 <div className="text-sm font-medium" style={{ color: '#3d2819' }}>
-                    Online Eval: {evalName}
+                    Hallucinating Imports on Coding Tasks
                 </div>
                 <div className="flex items-center gap-2">
                     {/* Status indicator circle */}
