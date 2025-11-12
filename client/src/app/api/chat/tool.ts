@@ -1,8 +1,7 @@
 import { z } from "zod";
-import { tool } from "@openai/agents";
+import { tool } from "ai";
 import { Pinecone } from "@pinecone-database/pinecone";
 import { OpenAI } from "openai";
-import { trace } from "node:console";
 
 interface Trace {
     id: string,
@@ -10,12 +9,11 @@ interface Trace {
 }
 
 export const getTraceByIdTool = tool({
-    name: "get_trace_by_id",
     description: "Retrieves the full details of a trace from Pinecone by its id, performing an exact id match. Only use this tool if the user explicitly references a trace id using the format <tid={id}>. Do not use for partial matches, descriptions, or general queries. Return the complete trace details if found; otherwise, indicate no match.",
-    parameters: z.object({
+    inputSchema: z.object({
         id: z.string().describe("The id of the trace to get. Should be the id part of the <tid={id}> format."),
     }),
-    execute: async (input: { id: string }) => {
+    execute: async ({ id }: { id: string }) => {
         if (!process.env.PINECONE_API_KEY) {
             throw new Error("PINECONE_API_KEY is not set");
         }
@@ -23,14 +21,14 @@ export const getTraceByIdTool = tool({
             apiKey: process.env.PINECONE_API_KEY,
         });
 
-        const result = await pc.Index("openclio").fetch([input.id]);
-        if (result.records && result.records[input.id]) {
-            const metadata = result?.records?.[input.id]?.metadata;
+        const result = await pc.Index("openclio").fetch([id]);
+        if (result.records && result.records[id]) {
+            const metadata = result?.records?.[id]?.metadata;
             if (metadata?.description === undefined || typeof metadata.description !== 'string') {
                 throw new Error("Metadata description is undefined.");
             }
             const trace: Trace = {
-                id: input.id,
+                id: id,
                 description: metadata?.description,
             }
             console.log("getTraceById tool executed successfully.");
@@ -64,10 +62,9 @@ const searchTracesParameters = z.object({
 type SearchTracesInput = z.infer<typeof searchTracesParameters>;
 
 export const searchTracesTool = tool({
-    name: "search_traces",
     description: "Search for traces in Pinecone using semantic similarity. Returns relevant traces based on the query. Optionally filter by cluster level (L0, L1, or L2) when a cluster ID is explicitly mentioned or tagged in the conversation.",
-    parameters: searchTracesParameters,
-    execute: async (input: SearchTracesInput) => {
+    inputSchema: searchTracesParameters,
+    execute: async ({ query, l0_cluster_id, l1_cluster_id, l2_cluster_id }: SearchTracesInput) => {
         try {
             if (!process.env.PINECONE_API_KEY) {
                 throw new Error("PINECONE_API_KEY is not set");
@@ -84,8 +81,6 @@ export const searchTracesTool = tool({
             const openai = new OpenAI({
                 apiKey: process.env.OPENAI_API_KEY,
             });
-
-            const { query, l0_cluster_id, l1_cluster_id, l2_cluster_id } = input;
 
             const response = await openai.embeddings.create({
                 model: "text-embedding-3-large",
