@@ -40,11 +40,11 @@ export async function POST(request: NextRequest) {
     console.log(`Request body: ${JSON.stringify(body)}`);
 
     const { query, conversationId } = validationResponse.data;
-    
+
     // Get or create conversation history
     let messages: Array<{ role: "user" | "assistant"; content: string }> = [];
     let currentConversationId = conversationId;
-    
+
     if (currentConversationId) {
         // Load existing conversation history
         messages = conversationStore.get(currentConversationId) || [];
@@ -52,10 +52,10 @@ export async function POST(request: NextRequest) {
         // Create new conversation ID
         currentConversationId = `conv_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
     }
-    
+
     // Add the new user message
     messages.push({ role: "user", content: query });
-    
+
     // Initializing a new agent using Vercel's AI SDK, and then enabling logging via LangSmith.
     const textStream = streamText({
         model: openai("gpt-4o-mini"),
@@ -78,163 +78,16 @@ export async function POST(request: NextRequest) {
         console.error("Error getting full text:", error);
         return "";
     });
-    
+
     // Return the streamed response with conversationId in headers
     const response = textStream.toTextStreamResponse({
         headers: {
             "X-Conversation-Id": currentConversationId,
         },
     });
-    
+
     // Don't await the promise - let it complete in the background
-    fullTextPromise.catch(() => {}); // Suppress unhandled promise rejection
-    
+    fullTextPromise.catch(() => { }); // Suppress unhandled promise rejection
+
     return response;
 }
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-// // Basic API route to return all traces from Pinecone.
-// export async function POST(request: NextRequest) {
-//     const body = await request.json();
-//     const validationResponse = traceAgentSchema.safeParse(body);
-//     if (!validationResponse.success) {
-//         return new Response(
-//             JSON.stringify({ error: "Invalid request body. Please provide a valid query string." }),
-//             { status: 400, headers: { "Content-Type": "application/json" } }
-//         );
-//     }
-//     console.log(`Request body: ${JSON.stringify(body)}`);
-//     const mode = validationResponse.data.mode || "ask";
-
-//     // If agent mode, return predefined demo output
-//     if (mode === "agent") {
-//         const encoder = new TextEncoder();
-//         const initialMessage = "I'll set up an evaluation for Hallucinating Imports on Coding Tasks. This will monitor and detect import errors and hallucinated imports in code generation tasks.";
-//         const evalCardFormat = '\n<eval_name="Hallucinating Imports on Coding Tasks" status="active">';
-        
-//         const stream = new ReadableStream({
-//             async start(controller) {
-//                 try {
-//                     // Wait 1 second before starting to stream
-//                     await new Promise(resolve => setTimeout(resolve, 1000));
-                    
-//                     // Stream the initial message word by word to match ask mode behavior
-//                     const words = initialMessage.split(' ');
-//                     for (let i = 0; i < words.length; i++) {
-//                         const word = words[i];
-//                         const chunk = i === 0 ? word : ' ' + word;
-//                         controller.enqueue(encoder.encode(`data: ${JSON.stringify({ chunk: chunk })}\n\n`));
-//                         // Small delay to simulate streaming (similar to ask mode)
-//                         await new Promise(resolve => setTimeout(resolve, 50));
-//                     }
-                    
-//                     // Wait 1.5 seconds before showing the eval card
-//                     await new Promise(resolve => setTimeout(resolve, 1500));
-                    
-//                     // Stream the eval card format as a single chunk (matching ask mode behavior)
-//                     controller.enqueue(encoder.encode(`data: ${JSON.stringify({ chunk: evalCardFormat })}\n\n`));
-                    
-//                     // Send completion signal
-//                     controller.enqueue(encoder.encode(`data: ${JSON.stringify({
-//                         done: true,
-//                         conversationId: validationResponse.data.conversationId || null
-//                     })}\n\n`));
-//                     controller.close();
-//                 } catch (error) {
-//                     console.error("Error in demo streaming:", error);
-//                     controller.enqueue(
-//                         encoder.encode(`data: ${JSON.stringify({ error: "Failed to generate demo response" })}\n\n`)
-//                     );
-//                     controller.close();
-//                 }
-//             },
-//         });
-
-//         return new Response(stream, {
-//             headers: {
-//                 "Content-Type": "text/event-stream",
-//                 "Cache-Control": "no-cache",
-//                 "Connection": "keep-alive",
-//             },
-//         });
-//     }
-
-//     // Create a ReadableStream for streaming the response (ask mode)
-//     const encoder = new TextEncoder();
-//     const stream = new ReadableStream({
-//         async start(controller) {
-//             try {
-//                 // Initializing a new agent and session using the Agents/Conversations SDK.
-//                 const traceAgent = new Agent({
-//                     name: "traceAgent",
-//                     instructions: prompts.traceAgent.instructions,
-//                     tools: [searchTracesTool, getTraceByIdTool],
-//                 });
-//                 console.log("Trace agent initialized.");
-//                 // Initialize session with existing conversationId if provided, otherwise create new
-
-//                 const session = validationResponse.data.conversationId
-//                     ? validationResponse.data.conversationId
-//                     : new OpenAIConversationsSession();
-
-//                 // Run the agent with streaming enabled
-//                 const result = await run(traceAgent, validationResponse.data.query, {
-//                     session,
-//                     stream: true,
-//                 });
-
-//                 // Stream text output as it arrives
-//                 const textStream = result.toTextStream();
-
-//                 // Read chunks from the text stream and forward them as SSE
-//                 for await (const chunk of textStream) {
-//                     // Convert chunk to string (handles string, Buffer, Uint8Array, etc.)
-//                     const chunkStr = typeof chunk === 'string'
-//                         ? chunk
-//                         : (chunk as any)?.toString() || String(chunk);
-//                     controller.enqueue(encoder.encode(`data: ${JSON.stringify({ chunk: chunkStr })}\n\n`));
-//                 }
-
-//                 // Wait for completion
-//                 await result.completed;
-
-//                 // Send completion signal with conversationId for session persistence
-//                 controller.enqueue(encoder.encode(`data: ${JSON.stringify({
-//                     done: true,
-//                     conversationId: session.conversationId
-//                 })}\n\n`));
-//                 controller.close();
-//             } catch (error) {
-//                 console.error("Error in streaming:", error);
-//                 controller.enqueue(
-//                     encoder.encode(`data: ${JSON.stringify({ error: "Failed to generate response" })}\n\n`)
-//                 );
-//                 controller.close();
-//             }
-//         },
-//     });
-
-//     return new Response(stream, {
-//         headers: {
-//             "Content-Type": "text/event-stream",
-//             "Cache-Control": "no-cache",
-//             "Connection": "keep-alive",
-//         },
-//     });
-// }
