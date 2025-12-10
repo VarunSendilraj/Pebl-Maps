@@ -1,6 +1,14 @@
+<div align="center">
+
 # Pebl Maps
 
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+[![Python 3.10+](https://img.shields.io/badge/python-3.10+-blue.svg)](https://www.python.org/downloads/)
+[![Node.js 18+](https://img.shields.io/badge/node.js-18+-green.svg)](https://nodejs.org/)
+
 This is part of a larger project called Pebl. Pebl is an open source project to help teams stop iterating on vibes and start iterating on evidence. To learn more check out [the website](https://www.usepebl.com).
+
+---
 
 **The Goal of Pebl Maps**
 
@@ -8,19 +16,29 @@ Pebl maps helps you understand how your users interact with your agents. This is
 
 To get started, upload your traces, and Pebl maps will generate topics, organize them into a hierarchical structure, and provide an interactive visualization to explore patterns in your data.
 
+<br />
+
 ![OpenClio Screenshot](https://www.usepebl.com/_next/image?url=%2Flanding-page-img.png&w=3840&q=75)
 
-## Features
+</div>
 
-- **Automatic Topic Generation** — Uses LLMs to summarize each conversation trace
-- **Hierarchical Clustering** — Organizes traces into hierarchical clusters (broad categories)
-- **Interactive Bubble Visualization** — Explore clusters with a zoomable, color-coded canvas
-- **Trace Viewer** — Drill down infinitely into individual conversations
-- **AI-Powered Analysis** — Chat with an AI agent to ask questions about your traces and get answers from your traces
+---
 
-* Note: Agent mode is currently unavailable, but will be coming soon!
+## ✨ Features
 
-## Quick Start
+| Feature | Description |
+|---------|-------------|
+| 🏷️ **Automatic Topic Generation** | Uses LLMs to summarize each conversation trace |
+| 🌳 **Hierarchical Clustering** | Organizes traces into hierarchical clusters (broad categories) |
+| 🫧 **Interactive Bubble Visualization** | Explore clusters with a zoomable, color-coded canvas |
+| 🔍 **Trace Viewer** | Drill down infinitely into individual conversations |
+| 🤖 **AI-Powered Analysis** | Chat with an AI agent to ask questions about your traces and get answers from your traces |
+
+> **Note:** Agent mode is currently unavailable, but will be coming soon!
+
+---
+
+## 🚀 Quick Start
 
 ### Prerequisites
 
@@ -30,6 +48,8 @@ To get started, upload your traces, and Pebl maps will generate topics, organize
   - [OpenAI](https://platform.openai.com/api-keys) (for embeddings & cluster labeling)
   - [DeepSeek](https://platform.deepseek.com/) (for topic generation) — *or use OpenAI*
   - [Pinecone](https://www.pinecone.io/) (for vector storage)
+
+<br />
 
 ### 1. Clone & Install
 
@@ -46,6 +66,8 @@ npm install
 cd ..
 ```
 
+<br />
+
 ### 2. Configure Environment
 
 ```bash
@@ -55,6 +77,8 @@ cp client/.env.example client/.env.local
 
 # Edit .env and add your API keys
 ```
+
+<br />
 
 ### 3. Prepare Your Data
 
@@ -68,6 +92,8 @@ Your input CSV should have a column containing conversation text. The expected f
 }
 ```
 
+<br />
+
 ### 4. Run the Pipeline
 
 ```bash
@@ -80,6 +106,8 @@ This will:
 3. Cluster topics hierarchically (L2 → L1 → L0)
 4. Index everything into Pinecone
 
+<br />
+
 ### 5. Start the Frontend
 
 ```bash
@@ -89,7 +117,9 @@ npm run dev
 
 Open [http://localhost:3000](http://localhost:3000) to explore your traces!
 
-## Architecture
+---
+
+## 🏗️ Architecture
 
 ```
 ┌─────────────────────────────────────────────────────────────────┐
@@ -111,14 +141,18 @@ Open [http://localhost:3000](http://localhost:3000) to explore your traces!
 └─────────────────────────────────────────────────────────────────┘
 ```
 
+<br />
+
 ### Pipeline (`pipeline/`)
 
 | Step | Script | Description |
-|------|--------|-------------|
+|:----:|--------|-------------|
 | 1 | `generate_topics.py` | Summarizes each conversation using an LLM |
 | 2 | `embed_topics.py` | Creates vector embeddings for topics |
 | 3 | `cluster.py` | Performs hierarchical K-means clustering |
 | 4 | `upsert.py` | Indexes clusters and topics into Pinecone |
+
+<br />
 
 ### Frontend (`client/`)
 
@@ -128,7 +162,9 @@ Open [http://localhost:3000](http://localhost:3000) to explore your traces!
 - Interactive cluster tree navigation
 - Trace viewer with conversation replay
 
-## Configuration
+---
+
+## ⚙️ Configuration
 
 ### Pipeline Options
 
@@ -144,6 +180,8 @@ Options:
   --skip_clustering    Skip clustering step
 ```
 
+<br />
+
 ### Clustering Parameters
 
 Edit `pipeline/cluster.py` to customize:
@@ -157,7 +195,9 @@ class ClusterConfig:
     model: str = "gpt-4o"  # Model for labeling
 ```
 
-## Project Structure
+---
+
+## 📁 Project Structure
 
 ```
 OpenClio/
@@ -179,15 +219,29 @@ OpenClio/
 └── README.md
 ```
 
-## Contributing
+---
+
+## 🤝 Contributing
 
 We welcome contributions! Please see [CONTRIBUTING.md](CONTRIBUTING.md) for guidelines.
 
-## License
+---
+
+## 📄 License
 
 This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
 
-## Acknowledgments
+---
+
+## 🙏 Acknowledgments
 
 - Built with [Next.js](https://nextjs.org/), [D3.js](https://d3js.org/), and [Pinecone](https://www.pinecone.io/)
-- Inspired by the need to understand LLM application usage at scale
+- Inspired by the [Clio project](https://www.anthropic.com/research/clio) from Anthropic and our own experiences working in industry building agents at scale.
+
+---
+
+<div align="center">
+
+**[Website](https://www.usepebl.com)** · **[Report Bug](https://github.com/yourusername/OpenClio/issues)** · **[Request Feature](https://github.com/yourusername/OpenClio/issues)**
+
+</div>
