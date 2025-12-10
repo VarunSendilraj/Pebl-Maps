@@ -126,3 +126,6 @@ WARP.md
 .Trashes
 ehthumbs.db
 Thumbs.db
+
+*.csv
+*.ipynb
