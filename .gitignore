@@ -62,6 +62,15 @@ target/
 
 # Jupyter Notebook
 .ipynb_checkpoints
+*.ipynb
+
+# Data files (users should bring their own data)
+*.csv
+data/
+output/
+
+# Legacy/orphan directories
+frontend/
 
 # IPython
 profile_default/

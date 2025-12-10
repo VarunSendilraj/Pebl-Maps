@@ -710,49 +710,31 @@ async function streamResponse(
         throw new Error("Response body is null");
     }
 
+    // Get conversationId from response headers for session persistence
+    const responseConversationId = response.headers.get("X-Conversation-Id");
+    if (responseConversationId && responseConversationId !== conversationId) {
+        setConversationId(responseConversationId);
+    }
+
     const reader = response.body.getReader();
     const decoder = new TextDecoder();
-    let buffer = "";
 
     while (true) {
         const { done, value } = await reader.read();
         if (done) break;
 
-        buffer += decoder.decode(value, { stream: true });
-        const lines = buffer.split("\n\n");
-        buffer = lines.pop() || ""; // Keep incomplete line in buffer
+        // Decode the chunk and append directly to the message
+        const chunk = decoder.decode(value, { stream: true });
 
-        for (const line of lines) {
-            if (line.startsWith("data: ")) {
-                try {
-                    const data = JSON.parse(line.slice(6));
-
-                    if (data.error) {
-                        throw new Error(data.error);
-                    }
-
-                    if (data.done) {
-                        // Save conversationId for future requests
-                        if (data.conversationId) {
-                            setConversationId(data.conversationId);
-                        }
-                        return;
-                    }
-
-                    if (data.chunk) {
-                        // Update the assistant message incrementally
-                        setConversationHistory((prev) =>
-                            prev.map((msg) =>
-                                msg.id === assistantMessageId
-                                    ? { ...msg, text: msg.text + data.chunk }
-                                    : msg
-                            )
-                        );
-                    }
-                } catch (e) {
-                    console.error("Error parsing stream data:", e);
-                }
-            }
+        if (chunk) {
+            // Update the assistant message incrementally with each text chunk
+            setConversationHistory((prev) =>
+                prev.map((msg) =>
+                    msg.id === assistantMessageId
+                        ? { ...msg, text: msg.text + chunk }
+                        : msg
+                )
+            );
         }
     }
 }
