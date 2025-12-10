@@ -1,18 +1,24 @@
 # Pebl Maps
 
-**Open-source trace visualization and analysis for LLM applications.**
+This is part of a larger project called Pebl. Pebl is an open source project to help teams stop iterating on vibes and start iterating on evidence. To learn more check out [the website](https://www.usepebl.com).
 
-Pebl maps helps you understand how users interact with your LLM-powered applications by automatically clustering and visualizing conversation traces. Upload your traces, and OpenClio will generate topics, organize them into a hierarchical structure, and provide an interactive visualization to explore patterns in your data.
+**The Goal of Pebl Maps**
 
-![OpenClio Screenshot](docs/screenshot.png)
+Pebl maps helps you understand how your users interact with your agents. This is done by automatically clustering and visualizing conversation traces and allowing you to investigate issues by drilling down infinitely into individual conversations. To pinpoint more specific issues and get more detailed answers, you can chat with an agent that is deeply understands your data.
+
+To get started, upload your traces, and Pebl maps will generate topics, organize them into a hierarchical structure, and provide an interactive visualization to explore patterns in your data.
+
+![OpenClio Screenshot](https://www.usepebl.com/_next/image?url=%2Flanding-page-img.png&w=3840&q=75)
 
 ## Features
 
 - **Automatic Topic Generation** — Uses LLMs to summarize each conversation trace
-- **Hierarchical Clustering** — Organizes traces into L2 → L1 → L0 clusters (broad categories → specific topics)
+- **Hierarchical Clustering** — Organizes traces into hierarchical clusters (broad categories)
 - **Interactive Bubble Visualization** — Explore clusters with a zoomable, color-coded canvas
-- **Trace Viewer** — Drill down into individual conversations
-- **AI-Powered Analysis** — Chat with an AI agent to ask questions about your traces
+- **Trace Viewer** — Drill down infinitely into individual conversations
+- **AI-Powered Analysis** — Chat with an AI agent to ask questions about your traces and get answers from your traces
+
+* Note: Agent mode is currently unavailable, but will be coming soon!
 
 ## Quick Start
 
@@ -29,7 +35,7 @@ Pebl maps helps you understand how users interact with your LLM-powered applicat
 
 ```bash
 git clone https://github.com/yourusername/OpenClio.git
-cd OpenClio
+cd pebl-maps
 
 # Install Python dependencies
 pip install -r requirements.txt

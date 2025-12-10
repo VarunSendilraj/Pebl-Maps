@@ -23,7 +23,7 @@ function HomePageContent() {
   const [error, setError] = useState<string | null>(null);
   const { selectNode } = useNavigationActions();
   const { tabs, activeTabId, openTraceTab } = useTabs();
-  
+
   const activeTab = tabs.find(tab => tab.id === activeTabId) || tabs[0];
 
   useEffect(() => {
@@ -73,9 +73,9 @@ function HomePageContent() {
       <Workspace
         sidebar={
           <Sidebar>
-            <div 
+            <div
               className="flex flex-col h-full overflow-hidden"
-              style={{ 
+              style={{
                 backgroundColor: '#e5e0d8',
                 borderTop: '1px solid #d8d3cb',
               }}
@@ -140,9 +140,9 @@ function HomePageContent() {
         }
         rightbar={
           <Rightbar>
-            <div 
+            <div
               className="flex flex-col h-full overflow-hidden"
-              style={{ 
+              style={{
                 backgroundColor: '#e5e0d8',
                 borderTop: '1px solid #d8d3cb',
               }}
