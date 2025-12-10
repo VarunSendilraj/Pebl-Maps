@@ -1,8 +1,8 @@
-# OpenClio
+# Pebl Maps
 
 **Open-source trace visualization and analysis for LLM applications.**
 
-OpenClio helps you understand how users interact with your LLM-powered applications by automatically clustering and visualizing conversation traces. Upload your traces, and OpenClio will generate topics, organize them into a hierarchical structure, and provide an interactive visualization to explore patterns in your data.
+Pebl maps helps you understand how users interact with your LLM-powered applications by automatically clustering and visualizing conversation traces. Upload your traces, and OpenClio will generate topics, organize them into a hierarchical structure, and provide an interactive visualization to explore patterns in your data.
 
 ![OpenClio Screenshot](docs/screenshot.png)
 
