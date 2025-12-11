@@ -200,7 +200,7 @@ class ClusterConfig:
 ## 📁 Project Structure
 
 ```
-OpenClio/
+Pebl-Maps/
 ├── client/                 # Next.js frontend
 │   ├── src/
 │   │   ├── app/           # App router pages & API routes
